@@ -18,8 +18,7 @@ fun BottomNavigationBar(
     onStatisticsSelected: () -> Unit
 ) {
     NavigationBar(
-        modifier = Modifier.fillMaxWidth()
-            .height(48.dp),
+        modifier = Modifier.fillMaxWidth(),
         containerColor = Black,
         contentColor = MaterialTheme.colorScheme.primary,
         tonalElevation = 0.dp
@@ -31,7 +30,7 @@ fun BottomNavigationBar(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_home),
                     contentDescription = "Overview",
-                    modifier = Modifier.size(16.dp) // Reduced size here
+                    modifier = Modifier.size(24.dp) // Reduced size here
                 )
             },
             label = { Text("Overview") }
@@ -44,7 +43,7 @@ fun BottomNavigationBar(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_server),
                     contentDescription = "Server",
-                    modifier = Modifier.size(16.dp) // Reduced size here
+                    modifier = Modifier.size(24.dp) // Reduced size here
                 )
             },
             label = { Text("Server") }
@@ -57,7 +56,7 @@ fun BottomNavigationBar(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_chart),
                     contentDescription = "Statistics",
-                    modifier = Modifier.size(16.dp) // Reduced size here
+                    modifier = Modifier.size(24.dp) // Reduced size here
                 )
             },
             label = { Text("Statistics") }
