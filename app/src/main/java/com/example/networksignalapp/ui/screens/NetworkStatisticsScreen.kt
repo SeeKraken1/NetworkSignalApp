@@ -300,23 +300,37 @@ fun StatisticCard(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.White,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(0.7f)
                 )
 
-                Column(horizontalAlignment = Alignment.End) {
+                // Improved layout for value and trend info
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier.weight(0.3f)
+                ) {
                     Text(
                         text = value,
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White
                     )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
-                        text = "$timeFrame $trend",
+                        text = timeFrame,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
+
+                    Text(
+                        text = trend,
                         style = MaterialTheme.typography.labelSmall,
                         color = if (trendIsPositive) Green else Red
                     )
@@ -366,13 +380,13 @@ fun NetworkTypeStatItem(
             }
         }
 
-        // Progress bar
+        // Progress bar - FIXED deprecated API warning
         LinearProgressIndicator(
-            progress = percentage / 100f,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp)),
+            progress = { percentage / 100f },
             color = if (type == "4G") Blue else if (type == "3G") Green else Color.LightGray,
             trackColor = Color.DarkGray
         )
@@ -429,13 +443,14 @@ fun SignalPowerStatItem(
         }
 
         // Progress bar - normalize between -120 dBm (0%) and -50 dBm (100%)
+        // FIXED deprecated API warning
         val normalizedValue = ((value + 120) / 70f).coerceIn(0f, 1f)
         LinearProgressIndicator(
-            progress = normalizedValue,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp)),
+            progress = { normalizedValue },
             color = if (normalizedValue > 0.7f) Green else if (normalizedValue > 0.4f) Blue else Red,
             trackColor = Color.DarkGray
         )
