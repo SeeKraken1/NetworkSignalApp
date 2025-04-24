@@ -2,36 +2,56 @@ package com.example.networksignalapp.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.networksignalapp.R
+import com.example.networksignalapp.model.DeviceData
 import com.example.networksignalapp.ui.components.BottomNavigationBar
+import com.example.networksignalapp.ui.theme.Blue
 import com.example.networksignalapp.ui.theme.DarkGray
 import com.example.networksignalapp.ui.theme.LightGray
+import com.example.networksignalapp.viewmodel.NetworkSignalViewModel
 
 @Composable
 fun ServerScreen(
+    viewModel: NetworkSignalViewModel,
     onNavigateToOverview: () -> Unit,
     onNavigateToStatistics: () -> Unit
 ) {
-    val devices = listOf(
-        DeviceInfo(1, "Device 1", "192.168.1.100", "00:1A:2B:3C:4D:5E", R.drawable.ic_smartphone),
-        DeviceInfo(2, "Device 2", "192.168.1.101", "00:1A:2B:3C:4D:5F", R.drawable.ic_laptop),
-        DeviceInfo(3, "Device 3", "192.168.1.102", "00:1A:2B:3C:4D:60", R.drawable.ic_desktop),
-        DeviceInfo(4, "Device 4", "192.168.1.103", "00:1A:2B:3C:4D:61", R.drawable.ic_wifi),
-        DeviceInfo(5, "Device 5", "192.168.1.104", "00:1A:2B:3C:4D:62", R.drawable.ic_wifi),
-        DeviceInfo(5, "Device 5", "192.168.1.104", "00:1A:2B:3C:4D:62", R.drawable.ic_speaker)
-    )
+    // Collect state from ViewModel
+    val devices by viewModel.connectedDevices.collectAsState()
+    
+    // State for filtering devices
+    var searchQuery by remember { mutableStateOf("") }
+    var isFilterMenuExpanded by remember { mutableStateOf(false) }
+    var selectedDeviceType by remember { mutableStateOf<String?>(null) }
+    
+    // Filter devices based on search query and selected type
+    val filteredDevices = devices.filter { device ->
+        val matchesSearch = searchQuery.isEmpty() || 
+            device.name.contains(searchQuery, ignoreCase = true) ||
+            device.ip.contains(searchQuery, ignoreCase = true) ||
+            device.mac.contains(searchQuery, ignoreCase = true)
+        
+        val matchesType = selectedDeviceType == null || 
+            getDeviceTypeFromIcon(device.iconRes) == selectedDeviceType
+            
+        matchesSearch && matchesType
+    }
     
     Scaffold(
         bottomBar = {
@@ -48,7 +68,6 @@ fun ServerScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(Color.Black)
-                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -58,7 +77,7 @@ fun ServerScreen(
                 color = Color.White
             )
             
-            // Mobile Network Card
+            // Server stats card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -71,36 +90,35 @@ fun ServerScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "Mobile Network",
+                        text = "Server Information",
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White
                     )
                     
-                    Column {
-                        Text(
-                            text = "Number of connected mobile devices",
-                            color = Color.Gray
-                        )
-                        Text(
-                            text = "4",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color.White
-                        )
-                    }
-                    
-                    Button(
-                        onClick = { /* View detailed stats */ },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = LightGray
-                        )
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("See detailed device statistics")
+                        ServerStatItem(
+                            label = "Status",
+                            value = "Online",
+                            valueColor = Color.Green
+                        )
+                        
+                        ServerStatItem(
+                            label = "Uptime",
+                            value = "3d 14h 22m"
+                        )
+                        
+                        ServerStatItem(
+                            label = "IP Address",
+                            value = "192.168.1.1"
+                        )
                     }
                 }
             }
             
-            // Connected Devices Card
+            // Connected devices section with search and filter
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -112,24 +130,180 @@ fun ServerScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = "Connected Devices",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
-                    )
-                    
-                    devices.forEach { device ->
-                        DeviceItem(device)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Connected Devices (${filteredDevices.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White
+                        )
+                        
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Filter button
+                            IconButton(
+                                onClick = { isFilterMenuExpanded = true },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(
+                                        color = if (selectedDeviceType != null) Blue else LightGray,
+                                        shape = CircleShape
+                                    )
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_wifi),
+                                    contentDescription = "Filter devices",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                
+                                DropdownMenu(
+                                    expanded = isFilterMenuExpanded,
+                                    onDismissRequest = { isFilterMenuExpanded = false },
+                                    modifier = Modifier.background(DarkGray)
+                                ) {
+                                    DeviceTypeFilterItem("All Devices", null, selectedDeviceType) {
+                                        selectedDeviceType = it
+                                        isFilterMenuExpanded = false
+                                    }
+                                    
+                                    DeviceTypeFilterItem("Smartphones", "smartphone", selectedDeviceType) {
+                                        selectedDeviceType = it
+                                        isFilterMenuExpanded = false
+                                    }
+                                    
+                                    DeviceTypeFilterItem("Laptops", "laptop", selectedDeviceType) {
+                                        selectedDeviceType = it
+                                        isFilterMenuExpanded = false
+                                    }
+                                    
+                                    DeviceTypeFilterItem("Desktops", "desktop", selectedDeviceType) {
+                                        selectedDeviceType = it
+                                        isFilterMenuExpanded = false
+                                    }
+                                    
+                                    DeviceTypeFilterItem("WiFi Devices", "wifi", selectedDeviceType) {
+                                        selectedDeviceType = it
+                                        isFilterMenuExpanded = false
+                                    }
+                                    
+                                    DeviceTypeFilterItem("Other", "other", selectedDeviceType) {
+                                        selectedDeviceType = it
+                                        isFilterMenuExpanded = false
+                                    }
+                                }
+                            }
+                            
+                            // Add new device button
+                            IconButton(
+                                onClick = { /* Add device implementation */ },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(
+                                        color = Blue,
+                                        shape = CircleShape
+                                    )
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_home),
+                                    contentDescription = "Add device",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                     
-                    Button(
-                        onClick = { /* Add device */ },
+                    // Search bar
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
+                        placeholder = { Text("Search by name, IP, or MAC") },
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            unfocusedContainerColor = LightGray,
+                            focusedContainerColor = LightGray,
+                            unfocusedTextColor = Color.White,
+                            focusedTextColor = Color.White,
+                            cursorColor = Blue,
+                            unfocusedPlaceholderColor = Color.Gray,
+                            focusedPlaceholderColor = Color.Gray,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_wifi),
+                                contentDescription = "Search",
+                                tint = Color.Gray
+                            )
+                        }
+                    )
+                    
+                    // Connected devices list
+                    if (filteredDevices.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (searchQuery.isEmpty() && selectedDeviceType == null) 
+                                    "No devices connected" 
+                                else 
+                                    "No devices match your filter",
+                                color = Color.Gray
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(350.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(filteredDevices) { device ->
+                                DeviceItem(device)
+                            }
+                        }
+                    }
+                    
+                    // Network overview section
+                    Text(
+                        text = "Network Overview",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.White,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("+ Add Device")
+                        NetworkOverviewItem(
+                            label = "Data Usage",
+                            value = "32.4 GB",
+                            percentage = 65
+                        )
+                        
+                        NetworkOverviewItem(
+                            label = "Bandwidth",
+                            value = "58.2 Mbps",
+                            percentage = 72
+                        )
+                        
+                        NetworkOverviewItem(
+                            label = "Clients",
+                            value = "${filteredDevices.size}/10",
+                            percentage = filteredDevices.size * 10
+                        )
                     }
                 }
             }
@@ -137,16 +311,62 @@ fun ServerScreen(
     }
 }
 
-data class DeviceInfo(
-    val id: Int,
-    val name: String,
-    val ip: String,
-    val mac: String,
-    val iconRes: Int
-)
+@Composable
+fun ServerStatItem(
+    label: String,
+    value: String,
+    valueColor: Color = Color.White
+) {
+    Column(
+        horizontalAlignment = Alignment.Start
+    ) {
+        Text(
+            text = label,
+            color = Color.Gray,
+            fontSize = 12.sp
+        )
+        Text(
+            text = value,
+            color = valueColor,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
 
 @Composable
-fun DeviceItem(device: DeviceInfo) {
+fun DeviceTypeFilterItem(
+    label: String,
+    type: String?,
+    selectedType: String?,
+    onSelect: (String?) -> Unit
+) {
+    DropdownMenuItem(
+        text = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = (type == selectedType) || (type == null && selectedType == null),
+                    onClick = { onSelect(type) },
+                    colors = RadioButtonDefaults.colors(
+                        selectedColor = Blue,
+                        unselectedColor = Color.Gray
+                    )
+                )
+                Text(
+                    text = label,
+                    color = Color.White
+                )
+            }
+        },
+        onClick = { onSelect(type) }
+    )
+}
+
+@Composable
+fun DeviceItem(device: DeviceData) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -174,18 +394,95 @@ fun DeviceItem(device: DeviceInfo) {
                 )
             }
             
-            Column {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = device.name,
-                    color = Color.White
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "IP: ${device.ip} MAC: ${device.mac}",
+                    text = "IP: ${device.ip}",
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = "MAC: ${device.mac}",
                     color = Color.Gray,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
+            
+            Column(
+                horizontalAlignment = Alignment.End
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(Color.Green)
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Text(
+                    text = "Connected",
+                    color = Color.Gray,
+                    fontSize = 10.sp
+                )
+            }
         }
+    }
+}
+
+@Composable
+fun NetworkOverviewItem(
+    label: String,
+    value: String,
+    percentage: Int
+) {
+    Column(
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = label,
+            color = Color.Gray,
+            fontSize = 12.sp
+        )
+        Text(
+            text = value,
+            color = Color.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium
+        )
+        
+        // Progress bar
+        LinearProgressIndicator(
+            progress = percentage / 100f,
+            modifier = Modifier
+                .width(100.dp)
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp)),
+            color = when {
+                percentage > 80 -> Color.Red
+                percentage > 60 -> Color.Yellow
+                else -> Color.Green
+            },
+            trackColor = Color.DarkGray
+        )
+    }
+}
+
+// Helper function to get device type from icon resource
+fun getDeviceTypeFromIcon(iconRes: Int): String {
+    return when (iconRes) {
+        R.drawable.ic_smartphone -> "smartphone"
+        R.drawable.ic_laptop -> "laptop"
+        R.drawable.ic_desktop -> "desktop"
+        R.drawable.ic_wifi -> "wifi"
+        else -> "other"
     }
 }
 
