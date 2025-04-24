@@ -7,9 +7,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -20,15 +21,22 @@ import com.example.networksignalapp.ui.components.BottomNavigationBar
 import com.example.networksignalapp.ui.components.InfoCard
 import com.example.networksignalapp.ui.components.LineChartView
 import com.example.networksignalapp.ui.components.SanFranciscoMap
+import com.example.networksignalapp.ui.components.SpeedTestView
 import com.example.networksignalapp.ui.theme.DarkGray
 import com.example.networksignalapp.ui.theme.LightGray
 import com.example.networksignalapp.ui.theme.Red
+import com.example.networksignalapp.viewmodel.NetworkSignalViewModel
 
 @Composable
 fun SignalOverviewScreen(
+    viewModel: NetworkSignalViewModel,
     onNavigateToServer: () -> Unit,
     onNavigateToStatistics: () -> Unit
 ) {
+    // Collect state from ViewModel
+    val networkData by viewModel.networkSignalData.collectAsState()
+    val signalHistory by viewModel.signalHistory.collectAsState()
+
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
@@ -53,24 +61,24 @@ fun SignalOverviewScreen(
                 style = MaterialTheme.typography.titleLarge,
                 color = Color.White
             )
-            
+
             // Signal Strength Card
             InfoCard(
                 icon = R.drawable.ic_signal,
                 title = "Signal strength",
-                value = "-106dBm"
+                value = networkData.signalStrength
             )
-            
+
             // Network Type Card
             InfoCard(
                 icon = R.drawable.ic_wifi,
                 title = "Network type",
-                value = "3G"
+                value = networkData.networkType
             )
-            
+
             // Map
             SanFranciscoMap()
-            
+
             // Network Information Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -88,19 +96,19 @@ fun SignalOverviewScreen(
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
-                    NetworkInfoItem("Operator", "T-Mobile")
-                    NetworkInfoItem("Signal Power", "-95dBm")
-                    NetworkInfoItem("SINR/SNR", "20dB")
-                    NetworkInfoItem("Network Type", "LTE")
-                    NetworkInfoItem("Frequency Band", "Band 66")
-                    NetworkInfoItem("Cell ID", "1234567")
-                    NetworkInfoItem("Time Stamp", "2022-02-13 12:34:56")
+
+                    NetworkInfoItem("Operator", networkData.operator)
+                    NetworkInfoItem("Signal Power", networkData.signalPower)
+                    NetworkInfoItem("SINR/SNR", networkData.sinrSnr)
+                    NetworkInfoItem("Network Type", networkData.networkType)
+                    NetworkInfoItem("Frequency Band", networkData.frequencyBand)
+                    NetworkInfoItem("Cell ID", networkData.cellId)
+                    NetworkInfoItem("Time Stamp", networkData.timeStamp)
                 }
             }
-            
+
             // Speed Test Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -118,17 +126,17 @@ fun SignalOverviewScreen(
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
-                    NetworkInfoItem("Download speed:", "12.4 Mbps")
-                    NetworkInfoItem("Upload speed:", "8.3 Mbps")
-                    NetworkInfoItem("Ping:", "109 ms")
-                    NetworkInfoItem("Jitter:", "9 ms")
-                    NetworkInfoItem("Packet loss:", "0%")
+
+                    NetworkInfoItem("Download speed:", networkData.downloadSpeed)
+                    NetworkInfoItem("Upload speed:", networkData.uploadSpeed)
+                    NetworkInfoItem("Ping:", networkData.ping)
+                    NetworkInfoItem("Jitter:", networkData.jitter)
+                    NetworkInfoItem("Packet loss:", networkData.packetLoss)
                 }
             }
-            
+
             // Signal Strength Chart Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -150,12 +158,12 @@ fun SignalOverviewScreen(
                             style = MaterialTheme.typography.titleMedium,
                             color = Color.White
                         )
-                        
+
                         Column(
                             horizontalAlignment = Alignment.End
                         ) {
                             Text(
-                                text = "-106dBm",
+                                text = networkData.signalStrength,
                                 style = MaterialTheme.typography.titleMedium,
                                 color = Color.White
                             )
@@ -166,14 +174,17 @@ fun SignalOverviewScreen(
                             )
                         }
                     }
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     // Signal Strength Chart
                     LineChartView(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(160.dp)
+                            .height(160.dp),
+                        data = signalHistory.map { Pair(it.date, it.value) },
+                        percentChange = -2f,
+                        isDdbm = true
                     )
                 }
             }
@@ -199,10 +210,9 @@ fun NetworkInfoItem(label: String, value: String) {
             fontWeight = FontWeight.Medium
         )
     }
-    
+
     Divider(
         modifier = Modifier.padding(vertical = 8.dp),
         color = LightGray.copy(alpha = 0.5f)
     )
 }
-

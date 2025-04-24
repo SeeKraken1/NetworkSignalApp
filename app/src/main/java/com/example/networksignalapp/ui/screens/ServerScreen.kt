@@ -34,25 +34,25 @@ fun ServerScreen(
 ) {
     // Collect state from ViewModel
     val devices by viewModel.connectedDevices.collectAsState()
-    
+
     // State for filtering devices
     var searchQuery by remember { mutableStateOf("") }
     var isFilterMenuExpanded by remember { mutableStateOf(false) }
     var selectedDeviceType by remember { mutableStateOf<String?>(null) }
-    
+
     // Filter devices based on search query and selected type
     val filteredDevices = devices.filter { device ->
-        val matchesSearch = searchQuery.isEmpty() || 
-            device.name.contains(searchQuery, ignoreCase = true) ||
-            device.ip.contains(searchQuery, ignoreCase = true) ||
-            device.mac.contains(searchQuery, ignoreCase = true)
-        
-        val matchesType = selectedDeviceType == null || 
-            getDeviceTypeFromIcon(device.iconRes) == selectedDeviceType
-            
+        val matchesSearch = searchQuery.isEmpty() ||
+                device.name.contains(searchQuery, ignoreCase = true) ||
+                device.ip.contains(searchQuery, ignoreCase = true) ||
+                device.mac.contains(searchQuery, ignoreCase = true)
+
+        val matchesType = selectedDeviceType == null ||
+                getDeviceTypeFromIcon(device.iconRes) == selectedDeviceType
+
         matchesSearch && matchesType
     }
-    
+
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
@@ -76,7 +76,7 @@ fun ServerScreen(
                 style = MaterialTheme.typography.titleLarge,
                 color = Color.White
             )
-            
+
             // Server stats card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -94,7 +94,7 @@ fun ServerScreen(
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White
                     )
-                    
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -104,12 +104,12 @@ fun ServerScreen(
                             value = "Online",
                             valueColor = Color.Green
                         )
-                        
+
                         ServerStatItem(
                             label = "Uptime",
                             value = "3d 14h 22m"
                         )
-                        
+
                         ServerStatItem(
                             label = "IP Address",
                             value = "192.168.1.1"
@@ -117,7 +117,7 @@ fun ServerScreen(
                     }
                 }
             }
-            
+
             // Connected devices section with search and filter
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -140,7 +140,7 @@ fun ServerScreen(
                             style = MaterialTheme.typography.titleMedium,
                             color = Color.White
                         )
-                        
+
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -160,7 +160,7 @@ fun ServerScreen(
                                     tint = Color.White,
                                     modifier = Modifier.size(20.dp)
                                 )
-                                
+
                                 DropdownMenu(
                                     expanded = isFilterMenuExpanded,
                                     onDismissRequest = { isFilterMenuExpanded = false },
@@ -170,34 +170,34 @@ fun ServerScreen(
                                         selectedDeviceType = it
                                         isFilterMenuExpanded = false
                                     }
-                                    
+
                                     DeviceTypeFilterItem("Smartphones", "smartphone", selectedDeviceType) {
                                         selectedDeviceType = it
                                         isFilterMenuExpanded = false
                                     }
-                                    
+
                                     DeviceTypeFilterItem("Laptops", "laptop", selectedDeviceType) {
                                         selectedDeviceType = it
                                         isFilterMenuExpanded = false
                                     }
-                                    
+
                                     DeviceTypeFilterItem("Desktops", "desktop", selectedDeviceType) {
                                         selectedDeviceType = it
                                         isFilterMenuExpanded = false
                                     }
-                                    
+
                                     DeviceTypeFilterItem("WiFi Devices", "wifi", selectedDeviceType) {
                                         selectedDeviceType = it
                                         isFilterMenuExpanded = false
                                     }
-                                    
+
                                     DeviceTypeFilterItem("Other", "other", selectedDeviceType) {
                                         selectedDeviceType = it
                                         isFilterMenuExpanded = false
                                     }
                                 }
                             }
-                            
+
                             // Add new device button
                             IconButton(
                                 onClick = { /* Add device implementation */ },
@@ -217,7 +217,7 @@ fun ServerScreen(
                             }
                         }
                     }
-                    
+
                     // Search bar
                     OutlinedTextField(
                         value = searchQuery,
@@ -245,7 +245,7 @@ fun ServerScreen(
                             )
                         }
                     )
-                    
+
                     // Connected devices list
                     if (filteredDevices.isEmpty()) {
                         Box(
@@ -255,9 +255,9 @@ fun ServerScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if (searchQuery.isEmpty() && selectedDeviceType == null) 
-                                    "No devices connected" 
-                                else 
+                                text = if (searchQuery.isEmpty() && selectedDeviceType == null)
+                                    "No devices connected"
+                                else
                                     "No devices match your filter",
                                 color = Color.Gray
                             )
@@ -274,7 +274,7 @@ fun ServerScreen(
                             }
                         }
                     }
-                    
+
                     // Network overview section
                     Text(
                         text = "Network Overview",
@@ -282,7 +282,7 @@ fun ServerScreen(
                         color = Color.White,
                         modifier = Modifier.padding(top = 8.dp)
                     )
-                    
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -292,13 +292,13 @@ fun ServerScreen(
                             value = "32.4 GB",
                             percentage = 65
                         )
-                        
+
                         NetworkOverviewItem(
                             label = "Bandwidth",
                             value = "58.2 Mbps",
                             percentage = 72
                         )
-                        
+
                         NetworkOverviewItem(
                             label = "Clients",
                             value = "${filteredDevices.size}/10",
@@ -393,7 +393,7 @@ fun DeviceItem(device: DeviceData) {
                     modifier = Modifier.size(24.dp)
                 )
             }
-            
+
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -413,7 +413,7 @@ fun DeviceItem(device: DeviceData) {
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            
+
             Column(
                 horizontalAlignment = Alignment.End
             ) {
@@ -423,9 +423,9 @@ fun DeviceItem(device: DeviceData) {
                         .clip(CircleShape)
                         .background(Color.Green)
                 )
-                
+
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 Text(
                     text = "Connected",
                     color = Color.Gray,
@@ -457,7 +457,7 @@ fun NetworkOverviewItem(
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium
         )
-        
+
         // Progress bar
         LinearProgressIndicator(
             progress = percentage / 100f,
@@ -485,4 +485,3 @@ fun getDeviceTypeFromIcon(iconRes: Int): String {
         else -> "other"
     }
 }
-
