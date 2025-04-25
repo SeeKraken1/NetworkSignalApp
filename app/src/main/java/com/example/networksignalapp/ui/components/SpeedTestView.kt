@@ -1,38 +1,31 @@
 package com.example.networksignalapp.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.networksignalapp.repository.NetworkSignalRepository
-import com.example.networksignalapp.repository.SpeedTestResult
 import com.example.networksignalapp.repository.SpeedTestStatus
-import com.example.networksignalapp.ui.theme.Blue
-import com.example.networksignalapp.ui.theme.DarkGray
 import com.example.networksignalapp.ui.theme.Green
-import kotlinx.coroutines.launch
+import com.example.networksignalapp.viewmodel.NetworkSignalViewModel
 import java.util.Locale
 
 @Composable
-fun SpeedTestView() {
-    val repository = remember { NetworkSignalRepository() }
-    val coroutineScope = rememberCoroutineScope()
-
-    var isRunningTest by remember { mutableStateOf(false) }
-    var testResult by remember { mutableStateOf<SpeedTestResult?>(null) }
+fun SpeedTestView(
+    viewModel: NetworkSignalViewModel,
+    modifier: Modifier = Modifier
+) {
+    val speedTestResult by viewModel.speedTestResult.collectAsState()
+    val isRunningTest by viewModel.isSpeedTestRunning.collectAsState()
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = DarkGray
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -43,31 +36,23 @@ fun SpeedTestView() {
             Text(
                 text = "Speed Test",
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold
             )
 
             if (isRunningTest) {
                 // Show test in progress
-                SpeedTestProgress(testResult)
-            } else if (testResult?.status == SpeedTestStatus.COMPLETE) {
+                SpeedTestProgress(speedTestResult)
+            } else if (speedTestResult?.status == SpeedTestStatus.COMPLETE) {
                 // Show completed test results
-                SpeedTestResults(testResult!!)
+                SpeedTestResults(speedTestResult!!)
             } else {
                 // Show start test button
                 Button(
-                    onClick = {
-                        isRunningTest = true
-                        coroutineScope.launch {
-                            repository.runSpeedTest().collect { result ->
-                                testResult = result
-                                isRunningTest = result.status != SpeedTestStatus.COMPLETE
-                            }
-                        }
-                    },
+                    onClick = { viewModel.runSpeedTest() },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Blue
+                        containerColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
                     Text("Start Speed Test")
@@ -78,7 +63,7 @@ fun SpeedTestView() {
 }
 
 @Composable
-fun SpeedTestProgress(result: SpeedTestResult?) {
+fun SpeedTestProgress(result: com.example.networksignalapp.repository.SpeedTestResult?) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -96,18 +81,17 @@ fun SpeedTestProgress(result: SpeedTestResult?) {
                 SpeedTestStatus.COMPLETE -> "Test complete"
                 null -> "Preparing test..."
             },
-            color = Color.White
+            color = MaterialTheme.colorScheme.onSurface
         )
 
         // Progress
         LinearProgressIndicator(
-            progress = result?.progressPercentage?.div(100f) ?: 0f,
+            progress = { result?.progressPercentage?.div(100f) ?: 0f },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(8.dp)
-                .clip(RoundedCornerShape(4.dp)),
-            color = Blue,
-            trackColor = Color.DarkGray
+                .height(8.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
         )
 
         // Current result if available
@@ -126,7 +110,7 @@ fun SpeedTestProgress(result: SpeedTestResult?) {
                 SpeedTestStatus.TESTING_PING -> {
                     Text(
                         text = "${result.downloadSpeed.toInt()} Mbps↓  ${result.uploadSpeed.toInt()} Mbps↑",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 else -> {
@@ -134,19 +118,19 @@ fun SpeedTestProgress(result: SpeedTestResult?) {
                     if (result.downloadSpeed > 0) {
                         Text(
                             text = "Download: ${String.format(Locale.US, "%.1f", result.downloadSpeed)} Mbps",
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     if (result.uploadSpeed > 0) {
                         Text(
                             text = "Upload: ${String.format(Locale.US, "%.1f", result.uploadSpeed)} Mbps",
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     if (result.ping > 0) {
                         Text(
                             text = "Ping: ${result.ping} ms",
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -156,7 +140,7 @@ fun SpeedTestProgress(result: SpeedTestResult?) {
 }
 
 @Composable
-fun SpeedTestResults(result: SpeedTestResult) {
+fun SpeedTestResults(result: com.example.networksignalapp.repository.SpeedTestResult) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -171,12 +155,12 @@ fun SpeedTestResults(result: SpeedTestResult) {
             ) {
                 Text(
                     text = "Download",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     fontSize = 14.sp
                 )
                 Text(
                     text = "${String.format(Locale.US, "%.1f", result.downloadSpeed)} Mbps",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -187,12 +171,12 @@ fun SpeedTestResults(result: SpeedTestResult) {
             ) {
                 Text(
                     text = "Upload",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     fontSize = 14.sp
                 )
                 Text(
                     text = "${String.format(Locale.US, "%.1f", result.uploadSpeed)} Mbps",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -212,17 +196,6 @@ fun SpeedTestResults(result: SpeedTestResult) {
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-
-        // Run again button
-        Button(
-            onClick = { /* Will be handled in parent */ },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Blue
-            )
-        ) {
-            Text("Run Again")
-        }
     }
 }
 
@@ -233,12 +206,12 @@ fun SpeedTestMetric(label: String, value: String) {
     ) {
         Text(
             text = label,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             fontSize = 14.sp
         )
         Text(
             text = value,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium
         )

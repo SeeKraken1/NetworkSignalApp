@@ -1,18 +1,42 @@
 package com.example.networksignalapp.ui.screens
 
+import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,22 +46,46 @@ import com.example.networksignalapp.ui.components.InfoCard
 import com.example.networksignalapp.ui.components.LineChartView
 import com.example.networksignalapp.ui.components.SanFranciscoMap
 import com.example.networksignalapp.ui.components.SpeedTestView
-import com.example.networksignalapp.ui.theme.DarkGray
-import com.example.networksignalapp.ui.theme.LightGray
 import com.example.networksignalapp.ui.theme.Red
 import com.example.networksignalapp.viewmodel.NetworkSignalViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignalOverviewScreen(
     viewModel: NetworkSignalViewModel,
     onNavigateToServer: () -> Unit,
-    onNavigateToStatistics: () -> Unit
+    onNavigateToStatistics: () -> Unit,
+    onToggleTheme: () -> Unit,
+    onLogout: () -> Unit = {}
 ) {
     // Collect state from ViewModel
     val networkData by viewModel.networkSignalData.collectAsState()
     val signalHistory by viewModel.signalHistory.collectAsState()
+    val isRecordingHistory by viewModel.isRecordingHistory.collectAsState()
+    val realSignalStrength by viewModel.realSignalStrength.collectAsState()
+    val signalQuality by viewModel.signalQuality.collectAsState()
+    val isDarkTheme by viewModel.isDarkTheme.collectAsState()
+
+    val context = LocalContext.current
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Network Signal Monitor") },
+                actions = {
+                    IconButton(onClick = { viewModel.refreshData() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    }
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.Default.ExitToApp, contentDescription = "Logout")
+                    }
+                    Switch(
+                        checked = isDarkTheme,
+                        onCheckedChange = { onToggleTheme() }
+                    )
+                }
+            )
+        },
         bottomBar = {
             BottomNavigationBar(
                 selectedTab = "overview",
@@ -51,40 +99,100 @@ fun SignalOverviewScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color.Black)
+                .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Signal",
+                text = "Signal Overview",
                 style = MaterialTheme.typography.titleLarge,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
 
-            // Signal Strength Card
-            InfoCard(
-                icon = R.drawable.ic_signal,
-                title = "Signal strength",
-                value = networkData.signalStrength
-            )
+            // Signal Strength Card with real-time data
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Current Signal Strength",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
 
-            // Network Type Card
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "$realSignalStrength dBm",
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Signal Quality: $signalQuality",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = when(signalQuality) {
+                                    "Excellent" -> MaterialTheme.colorScheme.primary
+                                    "Good" -> MaterialTheme.colorScheme.primary
+                                    "Fair" -> MaterialTheme.colorScheme.secondary
+                                    else -> Red
+                                }
+                            )
+                        }
+
+                        // Signal Quality Indicator
+                        SignalQualityIndicator(signalQuality = signalQuality)
+                    }
+
+                    // Toggle for history recording
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Record Signal History",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        Switch(
+                            checked = isRecordingHistory,
+                            onCheckedChange = { viewModel.toggleHistoryRecording() }
+                        )
+                    }
+                }
+            }
+
+            // Basic network information cards
             InfoCard(
                 icon = R.drawable.ic_wifi,
-                title = "Network type",
+                title = "Network Type",
                 value = networkData.networkType
             )
 
-            // Map
+            InfoCard(
+                icon = R.drawable.ic_signal,
+                title = "Operator",
+                value = networkData.operator
+            )
+
+            // Map showing location
             SanFranciscoMap()
 
-            // Network Information Card
+            // Network Information Details Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = DarkGray
-                ),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
@@ -94,100 +202,107 @@ fun SignalOverviewScreen(
                     Text(
                         text = "Network Information",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    NetworkInfoItem("Operator", networkData.operator)
                     NetworkInfoItem("Signal Power", networkData.signalPower)
                     NetworkInfoItem("SINR/SNR", networkData.sinrSnr)
-                    NetworkInfoItem("Network Type", networkData.networkType)
                     NetworkInfoItem("Frequency Band", networkData.frequencyBand)
                     NetworkInfoItem("Cell ID", networkData.cellId)
                     NetworkInfoItem("Time Stamp", networkData.timeStamp)
                 }
             }
 
-            // Speed Test Card
+            // Speed Test View
+            SpeedTestView(viewModel = viewModel)
+
+            // Signal History Chart
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = DarkGray
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Speed test",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    NetworkInfoItem("Download speed:", networkData.downloadSpeed)
-                    NetworkInfoItem("Upload speed:", networkData.uploadSpeed)
-                    NetworkInfoItem("Ping:", networkData.ping)
-                    NetworkInfoItem("Jitter:", networkData.jitter)
-                    NetworkInfoItem("Packet loss:", networkData.packetLoss)
-                }
-            }
-
-            // Signal Strength Chart Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = DarkGray
-                ),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Signal strength",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White
-                        )
-
-                        Column(
-                            horizontalAlignment = Alignment.End
-                        ) {
-                            Text(
-                                text = networkData.signalStrength,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color.White
-                            )
-                            Text(
-                                text = "This month -2%",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Red
-                            )
-                        }
-                    }
+                    Text(
+                        text = "Signal Strength History",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Signal Strength Chart
+                    // Signal Strength History Chart
                     LineChartView(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(160.dp),
+                            .height(200.dp),
                         data = signalHistory.map { Pair(it.date, it.value) },
-                        percentChange = -2f,
                         isDdbm = true
                     )
+
+                    // Action Buttons
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { viewModel.runSpeedTest() },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Run Speed Test")
+                        }
+
+                        Button(
+                            onClick = { viewModel.exportToCsv(context) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Export Data")
+                        }
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun SignalQualityIndicator(signalQuality: String) {
+    val color = when(signalQuality) {
+        "Excellent" -> MaterialTheme.colorScheme.primary
+        "Good" -> MaterialTheme.colorScheme.tertiary
+        "Fair" -> MaterialTheme.colorScheme.secondary
+        else -> Red
+    }
+
+    val bars = when(signalQuality) {
+        "Excellent" -> 4
+        "Good" -> 3
+        "Fair" -> 2
+        else -> 1
+    }
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.Bottom,
+        modifier = Modifier.height(32.dp)
+    ) {
+        repeat(4) { index ->
+            val barHeight = (index + 1) * 8
+            Box(
+                modifier = Modifier
+                    .width(8.dp)
+                    .height(barHeight.dp)
+                    .background(
+                        color = if (index < bars) color else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)
+                    )
+            )
         }
     }
 }
@@ -200,12 +315,12 @@ fun NetworkInfoItem(label: String, value: String) {
     ) {
         Text(
             text = label,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             fontSize = 14.sp
         )
         Text(
             text = value,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium
         )
@@ -213,6 +328,6 @@ fun NetworkInfoItem(label: String, value: String) {
 
     Divider(
         modifier = Modifier.padding(vertical = 8.dp),
-        color = LightGray.copy(alpha = 0.5f)
+        color = MaterialTheme.colorScheme.surfaceVariant
     )
 }

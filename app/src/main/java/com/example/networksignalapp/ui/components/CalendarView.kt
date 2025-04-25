@@ -16,23 +16,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.networksignalapp.ui.theme.Blue
-import com.example.networksignalapp.ui.theme.DarkGray
-import com.example.networksignalapp.ui.theme.LightGray
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.format.TextStyle
 import java.util.*
+import java.text.SimpleDateFormat
 
 @Composable
 fun CalendarView(
     onApply: () -> Unit
 ) {
-    var selectedDate by remember { mutableStateOf<LocalDate?>(LocalDate.now()) }
-    
+    var selectedDate by remember { mutableStateOf<Date?>(Date()) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = DarkGray
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -43,28 +39,28 @@ fun CalendarView(
             Text(
                 text = "Select a date range:",
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSurface
             )
-            
-            // January 2023 Calendar
+
             MonthCalendar(
-                yearMonth = YearMonth.of(2023, 1),
+                year = 2023,
+                month = Calendar.JANUARY,
                 selectedDate = selectedDate,
                 onDateSelected = { selectedDate = it }
             )
-            
-            // February 2023 Calendar
+
             MonthCalendar(
-                yearMonth = YearMonth.of(2023, 2),
+                year = 2023,
+                month = Calendar.FEBRUARY,
                 selectedDate = selectedDate,
                 onDateSelected = { selectedDate = it }
             )
-            
+
             Button(
                 onClick = onApply,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Blue
+                    containerColor = MaterialTheme.colorScheme.primary
                 )
             ) {
                 Text("Apply")
@@ -75,27 +71,34 @@ fun CalendarView(
 
 @Composable
 fun MonthCalendar(
-    yearMonth: YearMonth,
-    selectedDate: LocalDate?,
-    onDateSelected: (LocalDate) -> Unit
+    year: Int,
+    month: Int,
+    selectedDate: Date?,
+    onDateSelected: (Date) -> Unit
 ) {
+    val calendar = Calendar.getInstance()
+    calendar.set(Calendar.YEAR, year)
+    calendar.set(Calendar.MONTH, month)
+
+    val monthName = SimpleDateFormat("MMMM", Locale.getDefault()).format(calendar.time)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(LightGray, RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
             .padding(12.dp)
     ) {
         // Month and year header
         Text(
-            text = "${yearMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${yearMonth.year}",
+            text = "$monthName $year",
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
             fontWeight = FontWeight.Bold,
-            color = Color.White
+            color = MaterialTheme.colorScheme.onSurface
         )
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         // Days of week header
         Row(modifier = Modifier.fillMaxWidth()) {
             val daysOfWeek = listOf("S", "M", "T", "W", "T", "F", "S")
@@ -104,22 +107,22 @@ fun MonthCalendar(
                     text = day,
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         // Calendar grid
-        val firstDayOfMonth = yearMonth.atDay(1)
-        val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7 // 0 = Sunday, 6 = Saturday
-        val daysInMonth = yearMonth.lengthOfMonth()
-        
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        val firstDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) - 1 // 0 = Sunday
+        val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+
         // Create calendar grid
         var dayCounter = 1
         val rows = (daysInMonth + firstDayOfWeek + 6) / 7 // Calculate number of rows needed
-        
+
         for (row in 0 until rows) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 for (col in 0 until 7) {
@@ -127,9 +130,25 @@ fun MonthCalendar(
                         // Empty cell
                         Spacer(modifier = Modifier.weight(1f))
                     } else {
-                        val date = yearMonth.atDay(dayCounter)
-                        val isSelected = date == selectedDate
-                        
+                        // Create date for this cell
+                        val date = Calendar.getInstance().apply {
+                            set(Calendar.YEAR, year)
+                            set(Calendar.MONTH, month)
+                            set(Calendar.DAY_OF_MONTH, dayCounter)
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }.time
+
+                        // Check if this date is selected
+                        val isSelected = selectedDate?.let { sel ->
+                            val selCal = Calendar.getInstance().apply { time = sel }
+                            selCal.get(Calendar.YEAR) == year &&
+                                    selCal.get(Calendar.MONTH) == month &&
+                                    selCal.get(Calendar.DAY_OF_MONTH) == dayCounter
+                        } ?: false
+
                         // Date cell
                         Box(
                             modifier = Modifier
@@ -137,10 +156,10 @@ fun MonthCalendar(
                                 .aspectRatio(1f)
                                 .padding(4.dp)
                                 .clip(CircleShape)
-                                .background(if (isSelected) Blue else Color.Transparent)
+                                .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
                                 .border(
                                     width = if (isSelected) 0.dp else 1.dp,
-                                    color = if (isSelected) Color.Transparent else Color.Gray.copy(alpha = 0.3f),
+                                    color = if (isSelected) Color.Transparent else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
                                     shape = CircleShape
                                 )
                                 .clickable { onDateSelected(date) },
@@ -148,10 +167,10 @@ fun MonthCalendar(
                         ) {
                             Text(
                                 text = dayCounter.toString(),
-                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f)
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                             )
                         }
-                        
+
                         dayCounter++
                     }
                 }
@@ -159,4 +178,3 @@ fun MonthCalendar(
         }
     }
 }
-

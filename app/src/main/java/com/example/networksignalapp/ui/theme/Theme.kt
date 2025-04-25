@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
@@ -14,39 +15,59 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+// Dark color scheme
 private val DarkColorScheme = darkColorScheme(
     primary = Blue,
-    secondary = DarkGray,
-    tertiary = LightBlue,
+    secondary = LightBlue,
+    tertiary = LBlue,
     background = Black,
     surface = DarkGray,
+    surfaceVariant = LightGray,
     onPrimary = White,
     onSecondary = White,
     onTertiary = White,
     onBackground = White,
-    onSurface = White
+    onSurface = White,
+    primaryContainer = Blue.copy(alpha = 0.2f),
+    secondaryContainer = LightBlue.copy(alpha = 0.2f)
+)
+
+// Light color scheme
+private val LightColorScheme = lightColorScheme(
+    primary = Blue,
+    secondary = LightBlue,
+    tertiary = Gray,
+    background = White,
+    surface = Gray,
+    surfaceVariant = LightGray.copy(alpha = 0.3f),
+    onPrimary = White,
+    onSecondary = White,
+    onTertiary = White,
+    onBackground = Black,
+    onSurface = Black,
+    primaryContainer = Blue.copy(alpha = 0.1f),
+    secondaryContainer = LightBlue.copy(alpha = 0.1f)
 )
 
 @Composable
 fun NetworkSignalAppTheme(
-    darkTheme: Boolean = true, // Always use dark theme for this app
-    dynamicColor: Boolean = false, // Don't use dynamic color for consistent design
+    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicDarkColorScheme(context)
-        }
-        else -> DarkColorScheme
-    }
-    
+    // Explicitly avoid using dynamicColor to prevent ambiguity
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = Black.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+
+            // Update status bar color
+            window.statusBarColor = colorScheme.background.toArgb()
+
+            // Update system bars appearance
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
         }
     }
 
@@ -56,4 +77,3 @@ fun NetworkSignalAppTheme(
         content = content
     )
 }
-

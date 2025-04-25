@@ -1,7 +1,10 @@
 package com.example.networksignalapp.viewmodel
 
+import android.content.Context
+import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.networksignalapp.R
 import com.example.networksignalapp.model.DeviceData
 import com.example.networksignalapp.model.NetworkSignalData
 import com.example.networksignalapp.model.NetworkStatisticsData
@@ -14,10 +17,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-class NetworkSignalViewModel : ViewModel() {
+class NetworkSignalViewModel(
+    private val repository: NetworkSignalRepository = NetworkSignalRepository(),
+    private val appContext: Context? = null
+) : ViewModel() {
 
-    private val repository = NetworkSignalRepository()
+    private val prefs: SharedPreferences? = appContext?.getSharedPreferences("app_preferences", Context.MODE_PRIVATE)
 
     // Network signal data
     private val _networkSignalData = MutableStateFlow(NetworkSignalData())
@@ -47,12 +56,29 @@ class NetworkSignalViewModel : ViewModel() {
     private val _isSpeedTestRunning = MutableStateFlow(false)
     val isSpeedTestRunning: StateFlow<Boolean> = _isSpeedTestRunning.asStateFlow()
 
+    // Theme preference
+    private val _isDarkTheme = MutableStateFlow(true)
+    val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
+
+    // Signal history recording state
+    private val _isRecordingHistory = MutableStateFlow(false)
+    val isRecordingHistory: StateFlow<Boolean> = _isRecordingHistory.asStateFlow()
+
+    // Real signal data (from TelephonyManager)
+    private val _realSignalStrength = MutableStateFlow<Int>(-120)
+    val realSignalStrength: StateFlow<Int> = _realSignalStrength.asStateFlow()
+
+    // Signal quality categories
+    private val _signalQuality = MutableStateFlow("Poor")
+    val signalQuality: StateFlow<String> = _signalQuality.asStateFlow()
+
     init {
         // Load initial data
         loadSignalHistory()
         loadConnectedDevices()
         loadNetworkStatistics()
         loadServerInfo()
+        loadThemePreference()
 
         // Start collecting live network data
         viewModelScope.launch {
@@ -86,6 +112,54 @@ class NetworkSignalViewModel : ViewModel() {
         _serverInfo.value = repository.getServerInfo()
     }
 
+    private fun loadThemePreference() {
+        val isDark = prefs?.getBoolean("dark_theme", true) ?: true
+        _isDarkTheme.value = isDark
+    }
+
+    fun toggleTheme() {
+        _isDarkTheme.value = !_isDarkTheme.value
+
+        // Save preference if context is available
+        prefs?.edit()?.putBoolean("dark_theme", _isDarkTheme.value)?.apply()
+    }
+
+    fun updateSignalStrength(dbm: Int) {
+        _realSignalStrength.value = dbm
+
+        // Update signal quality based on dBm value
+        _signalQuality.value = when {
+            dbm > -80 -> "Excellent"
+            dbm > -90 -> "Good"
+            dbm > -100 -> "Fair"
+            else -> "Poor"
+        }
+
+        // Update the network signal data with real values
+        _networkSignalData.value = _networkSignalData.value.copy(
+            signalStrength = "$dbm dBm",
+            signalPower = "$dbm dBm"
+        )
+
+        // Record signal history if enabled
+        if (_isRecordingHistory.value) {
+            recordSignalHistory(dbm)
+        }
+    }
+
+    private fun recordSignalHistory(dbm: Int) {
+        val currentTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+        val newHistoryPoint = SignalHistoryData(currentTime, dbm.toFloat())
+
+        // Limit history size to most recent 100 points
+        val updatedHistory = (_signalHistory.value + newHistoryPoint).takeLast(100)
+        _signalHistory.value = updatedHistory
+    }
+
+    fun toggleHistoryRecording() {
+        _isRecordingHistory.value = !_isRecordingHistory.value
+    }
+
     fun runSpeedTest() {
         if (_isSpeedTestRunning.value) return
 
@@ -96,6 +170,17 @@ class NetworkSignalViewModel : ViewModel() {
             repository.runSpeedTest().collect { result ->
                 _speedTestResult.value = result
                 _isSpeedTestRunning.value = result.status != SpeedTestStatus.COMPLETE
+
+                // Update network data with speed test results when complete
+                if (result.status == SpeedTestStatus.COMPLETE) {
+                    _networkSignalData.value = _networkSignalData.value.copy(
+                        downloadSpeed = "${result.downloadSpeed} Mbps",
+                        uploadSpeed = "${result.uploadSpeed} Mbps",
+                        ping = "${result.ping} ms",
+                        jitter = "${result.jitter} ms",
+                        packetLoss = "${result.packetLoss}%"
+                    )
+                }
             }
         }
     }
@@ -114,10 +199,10 @@ class NetworkSignalViewModel : ViewModel() {
 
         return devices.filter { device ->
             when (type) {
-                "smartphone" -> device.iconRes == com.example.networksignalapp.R.drawable.ic_smartphone
-                "laptop" -> device.iconRes == com.example.networksignalapp.R.drawable.ic_laptop
-                "desktop" -> device.iconRes == com.example.networksignalapp.R.drawable.ic_desktop
-                "wifi" -> device.iconRes == com.example.networksignalapp.R.drawable.ic_wifi
+                "smartphone" -> device.iconRes == R.drawable.ic_smartphone
+                "laptop" -> device.iconRes == R.drawable.ic_laptop
+                "desktop" -> device.iconRes == R.drawable.ic_desktop
+                "wifi" -> device.iconRes == R.drawable.ic_wifi
                 else -> true
             }
         }
@@ -133,5 +218,17 @@ class NetworkSignalViewModel : ViewModel() {
                     device.ip.contains(query, ignoreCase = true) ||
                     device.mac.contains(query, ignoreCase = true)
         }
+    }
+
+    // Export data to CSV
+    fun exportToCsv(context: Context) {
+        val data = _networkSignalData.value
+        com.example.networksignalapp.ui.screens.exportToCsv(
+            context = context,
+            operator = data.operator,
+            signalStrength = data.signalStrength,
+            networkType = data.networkType,
+            sinr = data.sinrSnr
+        )
     }
 }
