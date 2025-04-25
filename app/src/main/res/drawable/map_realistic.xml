@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="600dp"
+    android:height="400dp"
+    android:viewportWidth="600"
+    android:viewportHeight="400">
+
+    <!-- Background -->
+    <path
+        android:fillColor="#2D3439"
+        android:pathData="M0,0h600v400h-600z"/>
+
+    <!-- Bay water -->
+    <path
+        android:fillColor="#344955"
+        android:pathData="M0,250h150v150h-150zM450,250h150v150h-150z"/>
+
+    <!-- Land mass -->
+    <path
+        android:fillColor="#424C55"
+        android:pathData="M150,100h300v300h-300z"/>
+
+    <!-- Main streets grid -->
+    <path
+        android:strokeColor="#656D78"
+        android:strokeWidth="2"
+        android:pathData="M150,150h300M150,200h300M150,250h300M150,300h300M150,350h300M200,100v300M250,100v300M300,100v300M350,100v300M400,100v300"/>
+
+    <!-- Secondary streets - thinner -->
+    <path
+        android:strokeColor="#656D78"
+        android:strokeWidth="1"
+        android:pathData="M150,125h300M150,175h300M150,225h300M150,275h300M150,325h300M175,100v300M225,100v300M275,100v300M325,100v300M375,100v300M425,100v300"/>
+
+    <!-- Downtown/Financial district area -->
+    <path
+        android:fillColor="#4B545D"
+        android:pathData="M250,175h100v100h-100z"/>
+
+    <!-- Parks and green spaces -->
+    <path
+        android:fillColor="#3E5641"
+        android:pathData="M350,300h50v50h-50zM200,200h30v30h-30z"/>
+
+    <!-- Major highways -->
+    <path
+        android:strokeColor="#787F89"
+        android:strokeWidth="4"
+        android:pathData="M150,200h300M300,100v300"/>
+
+    <!-- Bay Bridge indication -->
+    <path
+        android:strokeColor="#868D99"
+        android:strokeWidth="6"
+        android:pathData="M400,200h100"/>
+
+    <!-- Golden Gate area indication -->
+    <path
+        android:strokeColor="#A04B4B"
+        android:strokeWidth="6"
+        android:pathData="M150,150h-50"/>
+</vector>
