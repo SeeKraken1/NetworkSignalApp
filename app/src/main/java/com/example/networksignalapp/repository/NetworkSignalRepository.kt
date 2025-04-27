@@ -1,165 +1,230 @@
 package com.example.networksignalapp.repository
 
-import com.example.networksignalapp.R
-import com.example.networksignalapp.model.DeviceData
-import com.example.networksignalapp.model.NetworkSignalData
-import com.example.networksignalapp.model.NetworkStatisticsData
-import com.example.networksignalapp.model.SignalHistoryData
-import kotlinx.coroutines.delay
+import android.content.Context
+import android.content.SharedPreferences
+import android.net.wifi.WifiManager
+import com.example.networksignalapp.network.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlin.random.Random
+import kotlinx.coroutines.flow.flowOn
+import retrofit2.Response
+import java.net.NetworkInterface
+import java.text.SimpleDateFormat
+import java.util.*
 
 /**
- * Repository class to provide network signal data.
- * In a real app, this would fetch data from the system APIs or a remote source.
+ * Repository handling all network-related operations including authentication,
+ * data submission, and statistics retrieval
  */
-class NetworkSignalRepository {
+class NetworkRepository(private val context: Context) {
 
-    /**
-     * Emits current network signal data every second with slight variations
-     */
-    fun getNetworkSignalData(): Flow<NetworkSignalData> = flow {
-        val baseData = NetworkSignalData()
+    private val apiService: ApiService = RetrofitClient.create(ApiService::class.java)
+    private val prefs: SharedPreferences = context.getSharedPreferences("network_signal_prefs", Context.MODE_PRIVATE)
 
-        while (true) {
-            // Simulate small variations in signal strength
-            val signalVariation = Random.nextInt(-3, 4)
-            val baseSignalValue = -106
-            val newSignalStrength = "${baseSignalValue + signalVariation}dBm"
-
-            emit(baseData.copy(signalStrength = newSignalStrength))
-            delay(1000)
-        }
+    companion object {
+        private const val KEY_TOKEN = "auth_token"
+        private const val DATE_FORMAT = "yyyy-MM-dd HH:mm"
+        private const val TIMESTAMP_FORMAT = "dd MMM yyyy hh:mm:ss a" // Format expected by server
     }
 
     /**
-     * Provides historical signal data for charts
+     * Login user and store token
      */
-    fun getSignalHistory(): List<SignalHistoryData> = listOf(
-        SignalHistoryData("1/1", -110f),
-        SignalHistoryData("1/8", -102f),
-        SignalHistoryData("1/15", -105f),
-        SignalHistoryData("1/22", -98f),
-        SignalHistoryData("1/30", -106f)
-    )
+    suspend fun login(username: String, password: String): Flow<Result<TokenResponse>> = flow {
+        try {
+            val response = apiService.login(LoginRequest(username, password))
+            if (response.isSuccessful && response.body() != null) {
+                // Save token
+                saveToken(response.body()!!.token)
+                emit(Result.success(response.body()!!))
+            } else {
+                emit(Result.failure(Exception("Login failed: ${response.code()}")))
+            }
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }.flowOn(Dispatchers.IO)
 
     /**
-     * Provides connected devices data for the server tab
+     * Register a new user
      */
-    fun getConnectedDevices(): List<DeviceData> = listOf(
-        DeviceData(1, "iPhone 12 Pro", "192.168.1.100", "00:1A:2B:3C:4D:5E", R.drawable.ic_smartphone),
-        DeviceData(2, "MacBook Pro", "192.168.1.101", "00:1A:2B:3C:4D:5F", R.drawable.ic_laptop),
-        DeviceData(3, "Desktop PC", "192.168.1.102", "00:1A:2B:3C:4D:60", R.drawable.ic_desktop),
-        DeviceData(4, "WiFi Router", "192.168.1.103", "00:1A:2B:3C:4D:61", R.drawable.ic_wifi),
-        DeviceData(5, "Smart Speaker", "192.168.1.104", "00:1A:2B:3C:4D:62", R.drawable.ic_speaker),
-        DeviceData(6, "Samsung Galaxy S21", "192.168.1.105", "00:1A:2B:3C:4D:63", R.drawable.ic_smartphone),
-        DeviceData(7, "iPad Pro", "192.168.1.106", "00:1A:2B:3C:4D:64", R.drawable.ic_laptop),
-        DeviceData(8, "Smart TV", "192.168.1.107", "00:1A:2B:3C:4D:65", R.drawable.ic_wifi),
-        DeviceData(9, "Network Printer", "192.168.1.108", "00:1A:2B:3C:4D:66", R.drawable.ic_desktop)
-    )
+    suspend fun register(username: String, password: String): Flow<Result<Boolean>> = flow {
+        try {
+            val response = apiService.register(RegisterRequest(username, password))
+            if (response.isSuccessful) {
+                emit(Result.success(true))
+            } else {
+                val errorMessage = if (response.code() == 409) {
+                    "Username already taken"
+                } else {
+                    "Registration failed: ${response.code()}"
+                }
+                emit(Result.failure(Exception(errorMessage)))
+            }
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }.flowOn(Dispatchers.IO)
 
     /**
-     * Provides server information
+     * Submit cell network data to server
      */
-    fun getServerInfo(): ServerInfo {
-        return ServerInfo(
-            status = "Online",
-            uptime = "3d 14h 22m",
-            ipAddress = "192.168.1.1",
-            totalDataUsage = 32.4f, // GB
-            bandwidth = 58.2f, // Mbps
-            maxClients = 10,
-            connectedClients = 9
+    suspend fun submitCellData(
+        operator: String,
+        signalPower: Float,
+        sinrSnr: Float,
+        networkType: String,
+        frequencyBand: String,
+        cellId: String
+    ): Flow<Result<Boolean>> = flow {
+        try {
+            val token = getToken()
+            if (token.isNullOrEmpty()) {
+                emit(Result.failure(Exception("Not authenticated")))
+                return@flow
+            }
+
+            val timestamp = SimpleDateFormat(TIMESTAMP_FORMAT, Locale.US).format(Date())
+            val deviceInfo = getDeviceNetworkInfo()
+
+            val cellData = CellDataRequest(
+                operator = operator,
+                signalPower = signalPower,
+                sinr_snr = sinrSnr,
+                networkType = networkType,
+                frequency_band = frequencyBand,
+                cell_id = cellId,
+                timestamp = timestamp,
+                user_ip = deviceInfo.first,
+                user_mac = deviceInfo.second
+            )
+
+            val response = apiService.submitCellData("Bearer $token", cellData)
+            if (response.isSuccessful) {
+                emit(Result.success(true))
+            } else {
+                emit(Result.failure(Exception("Failed to submit data: ${response.code()}")))
+            }
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * Get statistics for a specific date range
+     */
+    suspend fun getStatistics(startDate: Date, endDate: Date): Flow<Result<StatisticsResponse>> = flow {
+        try {
+            val token = getToken()
+            if (token.isNullOrEmpty()) {
+                emit(Result.failure(Exception("Not authenticated")))
+                return@flow
+            }
+
+            val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.US)
+            val request = DateRangeRequest(
+                start_date = dateFormat.format(startDate),
+                end_date = dateFormat.format(endDate)
+            )
+
+            val response = apiService.getStatistics("Bearer $token", request)
+            if (response.isSuccessful && response.body() != null) {
+                emit(Result.success(response.body()!!))
+            } else {
+                emit(Result.failure(Exception("Failed to get statistics: ${response.code()}")))
+            }
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * Get centralized statistics about connected devices
+     */
+    suspend fun getCentralizedStatistics(): Flow<Result<CentralizedStatisticsResponse>> = flow {
+        try {
+            val response = apiService.getCentralizedStatistics()
+            if (response.isSuccessful && response.body() != null) {
+                emit(Result.success(response.body()!!))
+            } else {
+                emit(Result.failure(Exception("Failed to get centralized statistics: ${response.code()}")))
+            }
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * Get device IP and MAC address
+     */
+    private fun getDeviceNetworkInfo(): Pair<String, String> {
+        // Get IP address
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val ipAddress = wifiManager.connectionInfo.ipAddress
+        val ip = String.format(
+            "%d.%d.%d.%d",
+            ipAddress and 0xff,
+            ipAddress shr 8 and 0xff,
+            ipAddress shr 16 and 0xff,
+            ipAddress shr 24 and 0xff
         )
+
+        // Get MAC address
+        var macAddress = ""
+        try {
+            val networkInterfaces = NetworkInterface.getNetworkInterfaces()
+            while (networkInterfaces.hasMoreElements()) {
+                val networkInterface = networkInterfaces.nextElement()
+
+                if (networkInterface.name.equals("wlan0", ignoreCase = true)) {
+                    val macBytes = networkInterface.hardwareAddress
+                    if (macBytes != null) {
+                        val strBuilder = StringBuilder()
+                        for (b in macBytes) {
+                            strBuilder.append(String.format("%02X:", b))
+                        }
+                        if (strBuilder.isNotEmpty()) {
+                            strBuilder.deleteCharAt(strBuilder.length - 1)
+                        }
+                        macAddress = strBuilder.toString()
+                        break
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            macAddress = "02:00:00:00:00:00" // Default MAC if unable to get
+        }
+
+        return Pair(ip, macAddress)
     }
 
     /**
-     * Provides network statistics data
+     * Save authentication token
      */
-    fun getNetworkStatistics(): NetworkStatisticsData = NetworkStatisticsData()
+    private fun saveToken(token: String) {
+        prefs.edit().putString(KEY_TOKEN, token).apply()
+    }
 
     /**
-     * Run a simulated speed test
+     * Get saved authentication token
      */
-    fun runSpeedTest(): Flow<SpeedTestResult> = flow {
-        // Initial state
-        emit(SpeedTestResult(0f, 0f, 0, 0f, 0f, SpeedTestStatus.STARTING))
-        delay(500)
+    fun getToken(): String? {
+        return prefs.getString(KEY_TOKEN, null)
+    }
 
-        // Testing download
-        emit(SpeedTestResult(0f, 0f, 0, 0f, 0f, SpeedTestStatus.TESTING_DOWNLOAD))
+    /**
+     * Check if user is logged in
+     */
+    fun isLoggedIn(): Boolean {
+        return !getToken().isNullOrEmpty()
+    }
 
-        // Simulate download test progress
-        for (i in 1..10) {
-            val progress = i * 10
-            val currentSpeed = Random.nextFloat() * 15f + 5f // 5-20 Mbps
-            emit(SpeedTestResult(currentSpeed, 0f, 0, 0f, 0f, SpeedTestStatus.TESTING_DOWNLOAD, progress))
-            delay(300)
-        }
-
-        // Final download result
-        val downloadSpeed = Random.nextFloat() * 10f + 10f // 10-20 Mbps
-        emit(SpeedTestResult(downloadSpeed, 0f, 0, 0f, 0f, SpeedTestStatus.TESTING_UPLOAD))
-
-        // Simulate upload test progress
-        for (i in 1..10) {
-            val progress = i * 10
-            val currentSpeed = Random.nextFloat() * 8f + 2f // 2-10 Mbps
-            emit(SpeedTestResult(downloadSpeed, currentSpeed, 0, 0f, 0f, SpeedTestStatus.TESTING_UPLOAD, progress))
-            delay(300)
-        }
-
-        // Final upload result
-        val uploadSpeed = Random.nextFloat() * 5f + 5f // 5-10 Mbps
-        emit(SpeedTestResult(downloadSpeed, uploadSpeed, 0, 0f, 0f, SpeedTestStatus.TESTING_PING))
-        delay(1000)
-
-        // Final ping result
-        val ping = Random.nextInt(50, 150)
-        emit(SpeedTestResult(downloadSpeed, uploadSpeed, ping, 0f, 0f, SpeedTestStatus.TESTING_JITTER))
-        delay(500)
-
-        // Final jitter result
-        val jitter = Random.nextFloat() * 10f + 5f
-        emit(SpeedTestResult(downloadSpeed, uploadSpeed, ping, jitter, 0f, SpeedTestStatus.TESTING_PACKET_LOSS))
-        delay(500)
-
-        // Complete result
-        val packetLoss = Random.nextFloat() * 2f
-        emit(SpeedTestResult(downloadSpeed, uploadSpeed, ping, jitter, packetLoss, SpeedTestStatus.COMPLETE))
+    /**
+     * Logout user by clearing token
+     */
+    fun logout() {
+        prefs.edit().remove(KEY_TOKEN).apply()
     }
 }
-
-/**
- * Server information data class
- */
-data class ServerInfo(
-    val status: String,
-    val uptime: String,
-    val ipAddress: String,
-    val totalDataUsage: Float, // GB
-    val bandwidth: Float, // Mbps
-    val maxClients: Int,
-    val connectedClients: Int
-)
-
-enum class SpeedTestStatus {
-    STARTING,
-    TESTING_DOWNLOAD,
-    TESTING_UPLOAD,
-    TESTING_PING,
-    TESTING_JITTER,
-    TESTING_PACKET_LOSS,
-    COMPLETE
-}
-
-data class SpeedTestResult(
-    val downloadSpeed: Float, // Mbps
-    val uploadSpeed: Float, // Mbps
-    val ping: Int, // ms
-    val jitter: Float, // ms
-    val packetLoss: Float, // percentage
-    val status: SpeedTestStatus,
-    val progressPercentage: Int = 0
-)

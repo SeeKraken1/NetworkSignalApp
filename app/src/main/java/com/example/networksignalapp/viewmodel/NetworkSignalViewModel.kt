@@ -4,15 +4,14 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.networksignalapp.R
 import com.example.networksignalapp.model.DeviceData
 import com.example.networksignalapp.model.NetworkSignalData
 import com.example.networksignalapp.model.NetworkStatisticsData
 import com.example.networksignalapp.model.SignalHistoryData
-import com.example.networksignalapp.repository.NetworkSignalRepository
-import com.example.networksignalapp.repository.ServerInfo
-import com.example.networksignalapp.repository.SpeedTestResult
-import com.example.networksignalapp.repository.SpeedTestStatus
+import com.example.networksignalapp.repository.NetworkRepository
+import com.example.networksignalapp.ui.components.SpeedTestResult
+import com.example.networksignalapp.ui.components.SpeedTestStatus
+import com.example.networksignalapp.ui.screens.exportToCsv
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,9 +19,10 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.random.Random
 
 class NetworkSignalViewModel(
-    private val repository: NetworkSignalRepository = NetworkSignalRepository(),
+    private val repository: NetworkRepository,
     private val appContext: Context? = null
 ) : ViewModel() {
 
@@ -39,10 +39,6 @@ class NetworkSignalViewModel(
     // Connected devices
     private val _connectedDevices = MutableStateFlow<List<DeviceData>>(emptyList())
     val connectedDevices: StateFlow<List<DeviceData>> = _connectedDevices.asStateFlow()
-
-    // Server information
-    private val _serverInfo = MutableStateFlow<ServerInfo?>(null)
-    val serverInfo: StateFlow<ServerInfo?> = _serverInfo.asStateFlow()
 
     // Network statistics
     private val _networkStatistics = MutableStateFlow(NetworkStatisticsData())
@@ -77,21 +73,12 @@ class NetworkSignalViewModel(
         loadSignalHistory()
         loadConnectedDevices()
         loadNetworkStatistics()
-        loadServerInfo()
         loadThemePreference()
 
-        // Start collecting live network data
+        // Start collecting live network data from repository if available
         viewModelScope.launch {
             repository.getNetworkSignalData().collect { data ->
                 _networkSignalData.value = data
-            }
-        }
-
-        // Periodically refresh connected devices (simulate real-time updates)
-        viewModelScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(5000) // Refresh every 5 seconds
-                loadConnectedDevices()
             }
         }
     }
@@ -106,10 +93,6 @@ class NetworkSignalViewModel(
 
     fun loadNetworkStatistics() {
         _networkStatistics.value = repository.getNetworkStatistics()
-    }
-
-    fun loadServerInfo() {
-        _serverInfo.value = repository.getServerInfo()
     }
 
     private fun loadThemePreference() {
@@ -164,45 +147,147 @@ class NetworkSignalViewModel(
         if (_isSpeedTestRunning.value) return
 
         _isSpeedTestRunning.value = true
-        _speedTestResult.value = null
+        _speedTestResult.value = SpeedTestResult(status = SpeedTestStatus.STARTING)
 
         viewModelScope.launch {
-            repository.runSpeedTest().collect { result ->
-                _speedTestResult.value = result
-                _isSpeedTestRunning.value = result.status != SpeedTestStatus.COMPLETE
+            // Simulated speed test process
+            simulateSpeedTest()
+        }
+    }
 
-                // Update network data with speed test results when complete
-                if (result.status == SpeedTestStatus.COMPLETE) {
-                    _networkSignalData.value = _networkSignalData.value.copy(
-                        downloadSpeed = "${result.downloadSpeed} Mbps",
-                        uploadSpeed = "${result.uploadSpeed} Mbps",
-                        ping = "${result.ping} ms",
-                        jitter = "${result.jitter} ms",
-                        packetLoss = "${result.packetLoss}%"
-                    )
-                }
+    private suspend fun simulateSpeedTest() {
+        try {
+            // Initial state
+            _speedTestResult.value = SpeedTestResult(status = SpeedTestStatus.STARTING)
+            kotlinx.coroutines.delay(500)
+
+            // Testing download
+            _speedTestResult.value = SpeedTestResult(status = SpeedTestStatus.TESTING_DOWNLOAD)
+
+            // Simulate download test progress
+            for (i in 1..10) {
+                val progress = i * 10
+                val currentSpeed = Random.nextFloat() * 15f + 5f // 5-20 Mbps
+                _speedTestResult.value = SpeedTestResult(
+                    downloadSpeed = currentSpeed,
+                    status = SpeedTestStatus.TESTING_DOWNLOAD,
+                    progressPercentage = progress
+                )
+                kotlinx.coroutines.delay(300)
             }
+
+            // Final download result
+            val downloadSpeed = Random.nextFloat() * 10f + 10f // 10-20 Mbps
+            _speedTestResult.value = SpeedTestResult(
+                downloadSpeed = downloadSpeed,
+                status = SpeedTestStatus.TESTING_UPLOAD
+            )
+
+            // Simulate upload test progress
+            for (i in 1..10) {
+                val progress = i * 10
+                val currentSpeed = Random.nextFloat() * 8f + 2f // 2-10 Mbps
+                _speedTestResult.value = _speedTestResult.value?.copy(
+                    uploadSpeed = currentSpeed,
+                    status = SpeedTestStatus.TESTING_UPLOAD,
+                    progressPercentage = progress
+                )
+                kotlinx.coroutines.delay(300)
+            }
+
+            // Final upload result
+            val uploadSpeed = Random.nextFloat() * 5f + 5f // 5-10 Mbps
+            _speedTestResult.value = _speedTestResult.value?.copy(
+                uploadSpeed = uploadSpeed,
+                status = SpeedTestStatus.TESTING_PING
+            )
+            kotlinx.coroutines.delay(1000)
+
+            // Final ping result
+            val ping = Random.nextInt(50, 150)
+            _speedTestResult.value = _speedTestResult.value?.copy(
+                ping = ping,
+                status = SpeedTestStatus.TESTING_JITTER
+            )
+            kotlinx.coroutines.delay(500)
+
+            // Final jitter result
+            val jitter = Random.nextFloat() * 10f + 5f
+            _speedTestResult.value = _speedTestResult.value?.copy(
+                jitter = jitter,
+                status = SpeedTestStatus.TESTING_PACKET_LOSS
+            )
+            kotlinx.coroutines.delay(500)
+
+            // Complete result
+            val packetLoss = Random.nextFloat() * 2f
+            _speedTestResult.value = _speedTestResult.value?.copy(
+                packetLoss = packetLoss,
+                status = SpeedTestStatus.COMPLETE
+            )
+
+            // Update network data with speed test results
+            _networkSignalData.value = _networkSignalData.value.copy(
+                downloadSpeed = "${_speedTestResult.value?.downloadSpeed} Mbps",
+                uploadSpeed = "${_speedTestResult.value?.uploadSpeed} Mbps",
+                ping = "${_speedTestResult.value?.ping} ms",
+                jitter = "${_speedTestResult.value?.jitter} ms",
+                packetLoss = "${_speedTestResult.value?.packetLoss}%"
+            )
+
+            // Speed test completed
+            _isSpeedTestRunning.value = false
+
+        } catch (e: Exception) {
+            // Handle any errors
+            _speedTestResult.value = SpeedTestResult(status = SpeedTestStatus.COMPLETE)
+            _isSpeedTestRunning.value = false
         }
     }
 
     fun refreshData() {
         loadConnectedDevices()
         loadNetworkStatistics()
-        loadServerInfo()
         loadSignalHistory()
+    }
+
+    // Submit data to the backend server
+    fun submitSignalDataToServer() {
+        viewModelScope.launch {
+            val data = _networkSignalData.value
+            repository.submitCellData(
+                operator = data.operator,
+                signalPower = _realSignalStrength.value.toFloat(),
+                sinrSnr = data.sinrSnr.replace("dB", "").trim().toFloatOrNull() ?: 0f,
+                networkType = data.networkType,
+                frequencyBand = data.frequencyBand,
+                cellId = data.cellId
+            ).collect { result ->
+                result.fold(
+                    onSuccess = {
+                        // Successfully submitted data to server
+                        // You could update a status message here if needed
+                    },
+                    onFailure = { error ->
+                        // Failed to submit data
+                        // Log error or show notification to user
+                    }
+                )
+            }
+        }
     }
 
     // Filter devices by type
     fun getDevicesByType(type: String?): List<DeviceData> {
-        val devices = _connectedDevices.value
-        if (type == null) return devices
-
-        return devices.filter { device ->
+        return _connectedDevices.value.filter { device ->
             when (type) {
-                "smartphone" -> device.iconRes == R.drawable.ic_smartphone
-                "laptop" -> device.iconRes == R.drawable.ic_laptop
-                "desktop" -> device.iconRes == R.drawable.ic_desktop
-                "wifi" -> device.iconRes == R.drawable.ic_wifi
+                "smartphone" -> device.name.contains("phone", ignoreCase = true)
+                "laptop" -> device.name.contains("laptop", ignoreCase = true) ||
+                        device.name.contains("book", ignoreCase = true)
+                "desktop" -> device.name.contains("desktop", ignoreCase = true) ||
+                        device.name.contains("pc", ignoreCase = true)
+                "wifi" -> device.name.contains("wifi", ignoreCase = true) ||
+                        device.name.contains("router", ignoreCase = true)
                 else -> true
             }
         }
@@ -210,10 +295,9 @@ class NetworkSignalViewModel(
 
     // Search devices
     fun searchDevices(query: String): List<DeviceData> {
-        val devices = _connectedDevices.value
-        if (query.isEmpty()) return devices
+        if (query.isEmpty()) return _connectedDevices.value
 
-        return devices.filter { device ->
+        return _connectedDevices.value.filter { device ->
             device.name.contains(query, ignoreCase = true) ||
                     device.ip.contains(query, ignoreCase = true) ||
                     device.mac.contains(query, ignoreCase = true)
@@ -223,7 +307,7 @@ class NetworkSignalViewModel(
     // Export data to CSV
     fun exportToCsv(context: Context) {
         val data = _networkSignalData.value
-        com.example.networksignalapp.ui.screens.exportToCsv(
+        exportToCsv(
             context = context,
             operator = data.operator,
             signalStrength = data.signalStrength,

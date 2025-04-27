@@ -9,10 +9,36 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.networksignalapp.repository.SpeedTestStatus
 import com.example.networksignalapp.ui.theme.Green
 import com.example.networksignalapp.viewmodel.NetworkSignalViewModel
 import java.util.Locale
+
+/**
+ * Enum for speed test status
+ */
+enum class SpeedTestStatus {
+    IDLE,
+    STARTING,
+    TESTING_DOWNLOAD,
+    TESTING_UPLOAD,
+    TESTING_PING,
+    TESTING_JITTER,
+    TESTING_PACKET_LOSS,
+    COMPLETE
+}
+
+/**
+ * Data class for speed test result
+ */
+data class SpeedTestResult(
+    val downloadSpeed: Float = 0f, // Mbps
+    val uploadSpeed: Float = 0f, // Mbps
+    val ping: Int = 0, // ms
+    val jitter: Float = 0f, // ms
+    val packetLoss: Float = 0f, // percentage
+    val status: SpeedTestStatus = SpeedTestStatus.IDLE,
+    val progressPercentage: Int = 0
+)
 
 @Composable
 fun SpeedTestView(
@@ -63,7 +89,7 @@ fun SpeedTestView(
 }
 
 @Composable
-fun SpeedTestProgress(result: com.example.networksignalapp.repository.SpeedTestResult?) {
+fun SpeedTestProgress(result: SpeedTestResult?) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -79,7 +105,7 @@ fun SpeedTestProgress(result: com.example.networksignalapp.repository.SpeedTestR
                 SpeedTestStatus.TESTING_JITTER -> "Testing jitter..."
                 SpeedTestStatus.TESTING_PACKET_LOSS -> "Testing packet loss..."
                 SpeedTestStatus.COMPLETE -> "Test complete"
-                null -> "Preparing test..."
+                else -> "Preparing test..."
             },
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -140,7 +166,7 @@ fun SpeedTestProgress(result: com.example.networksignalapp.repository.SpeedTestR
 }
 
 @Composable
-fun SpeedTestResults(result: com.example.networksignalapp.repository.SpeedTestResult) {
+fun SpeedTestResults(result: SpeedTestResult) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
