@@ -9,9 +9,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,29 +16,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.networksignalapp.ui.theme.Blue
 import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * A simple, crash-proof date range selector
+ * A simplified date range selector component
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateRangeSelector(
     onApply: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val months = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
-    val years = (currentYear-2..currentYear+2).map { it.toString() }
+    var selectedYear by remember { mutableStateOf(Calendar.getInstance().get(Calendar.YEAR)) }
+    var startMonth by remember { mutableStateOf("") }
+    var endMonth by remember { mutableStateOf("") }
 
-    var selectedStartMonth by remember { mutableStateOf("") }
-    var selectedEndMonth by remember { mutableStateOf("") }
-    var selectedYear by remember { mutableStateOf(currentYear.toString()) }
+    val years = (selectedYear-2..selectedYear+2).map { it.toString() }
+    val months = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -66,11 +59,14 @@ fun DateRangeSelector(
                     fontWeight = FontWeight.Bold
                 )
 
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close"
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                ) {
+                    Text("Close")
                 }
             }
 
@@ -91,7 +87,7 @@ fun DateRangeSelector(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(years) { year ->
-                        val isSelected = year == selectedYear
+                        val isSelected = year == selectedYear.toString()
 
                         Box(
                             modifier = Modifier
@@ -106,7 +102,7 @@ fun DateRangeSelector(
                                     color = if (isSelected) Blue else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                                     shape = RoundedCornerShape(8.dp)
                                 )
-                                .clickable { selectedYear = year },
+                                .clickable { selectedYear = year.toInt() },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -135,11 +131,11 @@ fun DateRangeSelector(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(months) { month ->
-                        val isStartMonth = month == selectedStartMonth
-                        val isEndMonth = month == selectedEndMonth
-                        val isInRange = if (selectedStartMonth.isNotEmpty() && selectedEndMonth.isNotEmpty()) {
-                            val startIdx = months.indexOf(selectedStartMonth)
-                            val endIdx = months.indexOf(selectedEndMonth)
+                        val isStartMonth = month == startMonth
+                        val isEndMonth = month == endMonth
+                        val isInRange = if (startMonth.isNotEmpty() && endMonth.isNotEmpty()) {
+                            val startIdx = months.indexOf(startMonth)
+                            val endIdx = months.indexOf(endMonth)
                             val currentIdx = months.indexOf(month)
 
                             currentIdx in startIdx..endIdx
@@ -168,21 +164,21 @@ fun DateRangeSelector(
                                     shape = RoundedCornerShape(8.dp)
                                 )
                                 .clickable {
-                                    if (selectedStartMonth.isEmpty() || (selectedStartMonth.isNotEmpty() && selectedEndMonth.isNotEmpty())) {
+                                    if (startMonth.isEmpty() || (startMonth.isNotEmpty() && endMonth.isNotEmpty())) {
                                         // Start new selection
-                                        selectedStartMonth = month
-                                        selectedEndMonth = ""
+                                        startMonth = month
+                                        endMonth = ""
                                     } else {
                                         // Complete the selection
-                                        val startIdx = months.indexOf(selectedStartMonth)
+                                        val startIdx = months.indexOf(startMonth)
                                         val currentIdx = months.indexOf(month)
 
                                         if (currentIdx >= startIdx) {
-                                            selectedEndMonth = month
+                                            endMonth = month
                                         } else {
                                             // Handle reverse selection
-                                            selectedEndMonth = selectedStartMonth
-                                            selectedStartMonth = month
+                                            endMonth = startMonth
+                                            startMonth = month
                                         }
                                     }
                                 },
@@ -206,7 +202,7 @@ fun DateRangeSelector(
             }
 
             // Selection preview
-            if (selectedStartMonth.isNotEmpty()) {
+            if (startMonth.isNotEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -221,10 +217,10 @@ fun DateRangeSelector(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = "From: $selectedStartMonth $selectedYear")
+                        Text(text = "From: $startMonth $selectedYear")
 
                         Text(
-                            text = "To: ${if (selectedEndMonth.isEmpty()) "Select end month" else "$selectedEndMonth $selectedYear"}"
+                            text = "To: ${if (endMonth.isEmpty()) "Select end month" else "$endMonth $selectedYear"}"
                         )
                     }
                 }
@@ -244,13 +240,13 @@ fun DateRangeSelector(
 
                 Button(
                     onClick = {
-                        if (selectedStartMonth.isNotEmpty() && selectedEndMonth.isNotEmpty()) {
-                            val rangeText = "$selectedStartMonth - $selectedEndMonth $selectedYear"
+                        if (startMonth.isNotEmpty() && endMonth.isNotEmpty()) {
+                            val rangeText = "$startMonth - $endMonth $selectedYear"
                             onApply(rangeText)
                         }
                     },
                     modifier = Modifier.weight(1f),
-                    enabled = selectedStartMonth.isNotEmpty() && selectedEndMonth.isNotEmpty()
+                    enabled = startMonth.isNotEmpty() && endMonth.isNotEmpty()
                 ) {
                     Text("Apply")
                 }

@@ -25,7 +25,8 @@ fun LineChartView(
     fillColor: androidx.compose.ui.graphics.Color? = null,
     showPercentage: Boolean = false,
     isDdbm: Boolean = false,
-    percentChange: Float? = null
+    percentChange: Float? = null,
+    formatLabels: Boolean = true // Added parameter to control label formatting
 ) {
     // Calculate min and max values if not provided
     val calculatedMinValue = minValue ?: data.minOfOrNull { it.second }?.minus(10f) ?: -120f
@@ -101,30 +102,6 @@ fun LineChartView(
             )
         }
 
-        // Draw data points and lines
-        val pointPaint = Paint().apply {
-            color = lineColor.toArgb()
-            strokeWidth = 8f
-            style = Paint.Style.FILL
-        }
-
-        val linePaint = Paint().apply {
-            color = lineColor.toArgb()
-            strokeWidth = 3f
-            style = Paint.Style.STROKE
-        }
-
-        val fillPaint = Paint().apply {
-            color = fillColor?.copy(alpha = 0.3f)?.toArgb() ?: Color.TRANSPARENT
-            style = Paint.Style.FILL
-        }
-
-        val textPaint = Paint().apply {
-            color = Color.WHITE
-            textSize = 25f
-            textAlign = Paint.Align.CENTER
-        }
-
         // Calculate x and y positions
         val xStep = chartWidth / (data.size - 1).coerceAtLeast(1)
 
@@ -133,13 +110,30 @@ fun LineChartView(
             val normalizedValue = (value - calculatedMinValue) / valueRange
             val y = canvasHeight - padding - (normalizedValue * chartHeight)
 
+            // Format timestamp label for better readability
+            val displayLabel = if (formatLabels) {
+                formatTimestamp(label)
+            } else {
+                label
+            }
+
             // Draw x-axis labels
-            drawContext.canvas.nativeCanvas.drawText(
-                label,
-                x,
-                canvasHeight - padding + 30f,
-                textPaint
-            )
+            val textPaint = Paint().apply {
+                color = Color.WHITE
+                textSize = 24f
+                textAlign = Paint.Align.CENTER
+            }
+
+            // Draw labels at regular intervals to avoid overcrowding
+            val labelInterval = (data.size / 5).coerceAtLeast(1)
+            if (index % labelInterval == 0 || index == data.size - 1) {
+                drawContext.canvas.nativeCanvas.drawText(
+                    displayLabel,
+                    x,
+                    canvasHeight - padding + 30f,
+                    textPaint
+                )
+            }
 
             Pair(x, y)
         }
@@ -154,10 +148,21 @@ fun LineChartView(
             path.lineTo(points.last().first, canvasHeight - padding)
             path.close()
 
+            val fillPaint = Paint().apply {
+                color = fillColor.copy(alpha = 0.3f).toArgb()
+                style = Paint.Style.FILL
+            }
+
             drawContext.canvas.nativeCanvas.drawPath(path, fillPaint)
         }
 
         // Draw lines between points
+        val linePaint = Paint().apply {
+            color = lineColor.toArgb()
+            strokeWidth = 3f
+            style = Paint.Style.STROKE
+        }
+
         for (i in 0 until points.size - 1) {
             drawContext.canvas.nativeCanvas.drawLine(
                 points[i].first, points[i].second,
@@ -167,6 +172,12 @@ fun LineChartView(
         }
 
         // Draw points
+        val pointPaint = Paint().apply {
+            color = lineColor.toArgb()
+            strokeWidth = 8f
+            style = Paint.Style.FILL
+        }
+
         points.forEach { (x, y) ->
             drawContext.canvas.nativeCanvas.drawCircle(
                 x, y, 6f, pointPaint
@@ -218,5 +229,28 @@ fun LineChartView(
                 percentPaint
             )
         }
+    }
+}
+
+/**
+ * Format timestamp to be more readable
+ * Converts formats like "12:18:33" to "12:18" or "2023-04-27 12:18:33" to "04/27 12:18"
+ */
+private fun formatTimestamp(timestamp: String): String {
+    return when {
+        // Full datetime format: "2023-04-27 12:18:33"
+        timestamp.matches(Regex("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}")) -> {
+            val parts = timestamp.split(" ")
+            val dateParts = parts[0].split("-")
+            val timeParts = parts[1].split(":")
+            "${dateParts[1]}/${dateParts[2]} ${timeParts[0]}:${timeParts[1]}"
+        }
+        // Time only format: "12:18:33"
+        timestamp.matches(Regex("\\d{2}:\\d{2}:\\d{2}")) -> {
+            val parts = timestamp.split(":")
+            "${parts[0]}:${parts[1]}"
+        }
+        // Already formatted or unknown format
+        else -> timestamp
     }
 }

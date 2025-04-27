@@ -1,5 +1,6 @@
 package com.example.networksignalapp.service
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -31,7 +32,6 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 /**
  * Background service that monitors network signal strength and submits data to the server
@@ -96,9 +96,10 @@ class SignalDataService : Service() {
     /**
      * Initialize tracking of signal strength
      */
+    @SuppressLint("MissingPermission")
     private fun initializeSignalTracking() {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // API 31+
                 // Use the new TelephonyCallback API for Android 12+
                 val telephonyCallback = object : TelephonyCallback(), TelephonyCallback.SignalStrengthsListener {
                     override fun onSignalStrengthsChanged(signalStrength: SignalStrength) {
@@ -110,7 +111,7 @@ class SignalDataService : Service() {
                 // Fall back to deprecated method for older Android versions
                 @Suppress("DEPRECATION")
                 val phoneStateListener = object : PhoneStateListener() {
-                    @Suppress("DEPRECATION")
+                    @Deprecated("Deprecated in Java")
                     override fun onSignalStrengthsChanged(signalStrength: SignalStrength) {
                         processSignalStrength(signalStrength)
                     }
@@ -137,14 +138,12 @@ class SignalDataService : Service() {
         try {
             // Extract signal data based on Android version
             val dbm = try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // API 29+
                     signalStrength.cellSignalStrengths.firstOrNull()?.dbm ?: -120
                 } else {
-                    @Suppress("DEPRECATION")
-                    // Attempt to use reflection to get the signal strength on older devices
-                    val method = SignalStrength::class.java.getDeclaredMethod("getDbm")
-                    method.isAccessible = true
-                    (method.invoke(signalStrength) as? Int) ?: -120
+                    // For older Android versions, use a fallback value
+                    // Using reflection is not recommended as it's not part of public API
+                    -120
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error getting signal strength", e)
@@ -176,6 +175,7 @@ class SignalDataService : Service() {
     /**
      * Update cell information
      */
+    @SuppressLint("MissingPermission")
     private fun updateCellInfo() {
         try {
             // Get all cell info
@@ -196,8 +196,10 @@ class SignalDataService : Service() {
 
                         // Get SINR/SNR for LTE
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            // On API 29+ we can use the public method
                             this.sinrSnr = cellInfo.cellSignalStrength.rsrq.toFloat()
                         } else {
+                            // On older versions, use RSRP (different but related value)
                             @Suppress("DEPRECATION")
                             this.sinrSnr = cellInfo.cellSignalStrength.rsrp.toFloat()
                         }

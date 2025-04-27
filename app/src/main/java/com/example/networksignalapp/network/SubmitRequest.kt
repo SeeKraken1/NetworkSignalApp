@@ -1,13 +1,8 @@
 package com.example.networksignalapp.network
 
-data class SubmitRequest(
-    val timestamp: String,
-    val operator: String,
-    val signal_power: Int,
-    val snr: Float,
-    val network_type: String,
-    val band: String,
-    val cell_id: String,
-    val device_ip: String,
-    val device_mac: String
-)
+// This file is kept for backward compatibility
+// The actual SubmitRequest model has been moved to NetworkModels.kt
+// Use com.example.networksignalapp.network.model.SubmitRequest instead
+
+@Deprecated("Use SubmitRequest from com.example.networksignalapp.network.model package")
+typealias SubmitRequest = com.example.networksignalapp.network.model.SubmitRequest

@@ -8,6 +8,7 @@ import com.example.networksignalapp.model.DeviceData
 import com.example.networksignalapp.model.NetworkSignalData
 import com.example.networksignalapp.model.NetworkStatisticsData
 import com.example.networksignalapp.model.SignalHistoryData
+import com.example.networksignalapp.ui.components.DateRange
 import com.example.networksignalapp.ui.components.SpeedTestResult
 import com.example.networksignalapp.ui.components.SpeedTestStatus
 import com.example.networksignalapp.ui.screens.exportToCsv
@@ -66,6 +67,10 @@ class NetworkSignalViewModel(
     // Signal quality categories
     private val _signalQuality = MutableStateFlow("Poor")
     val signalQuality: StateFlow<String> = _signalQuality.asStateFlow()
+
+    // Status text for various screens
+    private val _status = MutableStateFlow("")
+    val status: StateFlow<String> = _status.asStateFlow()
 
     init {
         // Load initial data
@@ -197,10 +202,12 @@ class NetworkSignalViewModel(
         try {
             // Initial state
             _speedTestResult.value = SpeedTestResult(status = SpeedTestStatus.STARTING)
+            _status.value = "Starting speed test..."
             kotlinx.coroutines.delay(500)
 
             // Testing download
             _speedTestResult.value = SpeedTestResult(status = SpeedTestStatus.TESTING_DOWNLOAD)
+            _status.value = "Testing download speed..."
 
             // Simulate download test progress
             for (i in 1..10) {
@@ -220,6 +227,7 @@ class NetworkSignalViewModel(
                 downloadSpeed = downloadSpeed,
                 status = SpeedTestStatus.TESTING_UPLOAD
             )
+            _status.value = "Testing upload speed..."
 
             // Simulate upload test progress
             for (i in 1..10) {
@@ -239,6 +247,7 @@ class NetworkSignalViewModel(
                 uploadSpeed = uploadSpeed,
                 status = SpeedTestStatus.TESTING_PING
             )
+            _status.value = "Testing ping..."
             kotlinx.coroutines.delay(1000)
 
             // Final ping result
@@ -247,6 +256,7 @@ class NetworkSignalViewModel(
                 ping = ping,
                 status = SpeedTestStatus.TESTING_JITTER
             )
+            _status.value = "Testing jitter..."
             kotlinx.coroutines.delay(500)
 
             // Final jitter result
@@ -255,6 +265,7 @@ class NetworkSignalViewModel(
                 jitter = jitter,
                 status = SpeedTestStatus.TESTING_PACKET_LOSS
             )
+            _status.value = "Testing packet loss..."
             kotlinx.coroutines.delay(500)
 
             // Complete result
@@ -263,6 +274,7 @@ class NetworkSignalViewModel(
                 packetLoss = packetLoss,
                 status = SpeedTestStatus.COMPLETE
             )
+            _status.value = "Speed test completed."
 
             // Update network data with speed test results
             _networkSignalData.value = _networkSignalData.value.copy(
@@ -280,6 +292,7 @@ class NetworkSignalViewModel(
             // Handle any errors
             _speedTestResult.value = SpeedTestResult(status = SpeedTestStatus.COMPLETE)
             _isSpeedTestRunning.value = false
+            _status.value = "Speed test failed: ${e.message}"
         }
     }
 
@@ -290,9 +303,112 @@ class NetworkSignalViewModel(
         generateMockNetworkData()
     }
 
+    /**
+     * Filter statistics data by date range
+     */
+    fun filterDataByDateRange(dateRange: DateRange) {
+        viewModelScope.launch {
+            if (!dateRange.isValid()) {
+                // If date range is not valid, return to default data
+                loadSignalHistory()
+                loadNetworkStatistics()
+                return@launch
+            }
+
+            // For signal history - filter based on date range
+            // We'll need to convert our string timestamps to Date objects
+            val filteredHistory = generateFilteredHistoryData(dateRange)
+            _signalHistory.value = filteredHistory
+
+            // For statistics - generate new statistics based on the date range
+            val filteredStatistics = generateFilteredStatisticsData(dateRange)
+            _networkStatistics.value = filteredStatistics
+        }
+    }
+
+    /**
+     * Generate filtered history data based on date range
+     */
+    private fun generateFilteredHistoryData(dateRange: DateRange): List<SignalHistoryData> {
+        // Get the full dataset first
+        val allHistory = generateMockSignalHistory()
+
+        if (dateRange.startDate == null || dateRange.endDate == null) {
+            return allHistory
+        }
+
+        // Create formatter to parse dates from our data timestamps
+        val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+
+        // Filter history entries that fall within the date range
+        return allHistory.filter { historyItem ->
+            try {
+                // Convert timestamp to date (prepend current date if timestamp is just time)
+                val dateString = if (historyItem.date.contains(":") && !historyItem.date.contains("-")) {
+                    // Just time format - prepend current date
+                    val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                    "$today ${historyItem.date}"
+                } else {
+                    // Already has date
+                    historyItem.date
+                }
+
+                val historyDate = formatter.parse(dateString)
+                if (historyDate != null) {
+                    historyDate >= dateRange.startDate && historyDate <= dateRange.endDate
+                } else {
+                    // Include if we can't parse the date
+                    true
+                }
+            } catch (e: Exception) {
+                // If parsing fails, include the item
+                true
+            }
+        }
+    }
+
+    /**
+     * Generate statistics data filtered by date range
+     */
+    private fun generateFilteredStatisticsData(dateRange: DateRange): NetworkStatisticsData {
+        if (dateRange.startDate == null || dateRange.endDate == null) {
+            return NetworkStatisticsData()
+        }
+
+        // Generate random data based on the date range
+        val randomConnectivity = 85 + Random.nextInt(15)
+
+        return NetworkStatisticsData(
+            averageConnectivity = "$randomConnectivity%",
+            timeInNetworkType = mapOf(
+                "5G" to 20f + Random.nextFloat() * 10f,
+                "4G" to 40f + Random.nextFloat() * 10f,
+                "3G" to 30f - Random.nextFloat() * 10f,
+                "2G" to 10f - Random.nextFloat() * 5f
+            ),
+            operatorTime = mapOf(
+                "Verizon" to 1.2f + Random.nextFloat() * 0.5f,
+                "T-Mobile" to 1.5f + Random.nextFloat() * 0.5f,
+                "AT&T" to 0.8f + Random.nextFloat() * 0.5f
+            ),
+            signalPowerByType = mapOf(
+                "5G" to -60f - Random.nextFloat() * 10f,
+                "4G" to -70f - Random.nextFloat() * 10f,
+                "3G" to -85f - Random.nextFloat() * 10f,
+                "2G" to -95f - Random.nextFloat() * 10f
+            ),
+            snrByType = mapOf(
+                "5G" to 15f + Random.nextFloat() * 5f,
+                "4G" to 12f + Random.nextFloat() * 3f,
+                "3G" to 8f + Random.nextFloat() * 2f,
+                "2G" to 5f + Random.nextFloat() * 2f
+            )
+        )
+    }
+
     // Added mock data generator functions to replace repository calls
 
-    private fun generateMockSignalHistory(): List<SignalHistoryData> {
+    fun generateMockSignalHistory(): List<SignalHistoryData> {
         val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
         val calendar = java.util.Calendar.getInstance()
 
@@ -305,7 +421,7 @@ class NetworkSignalViewModel(
         }.reversed()
     }
 
-    private fun generateMockDevices(): List<DeviceData> {
+    fun generateMockDevices(): List<DeviceData> {
         return listOf(
             DeviceData(1, "iPhone 12 Pro", "192.168.1.100", "00:1A:2B:3C:4D:5E", com.example.networksignalapp.R.drawable.ic_smartphone),
             DeviceData(2, "MacBook Pro", "192.168.1.101", "00:1A:2B:3C:4D:5F", com.example.networksignalapp.R.drawable.ic_laptop),

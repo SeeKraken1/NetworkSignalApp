@@ -15,12 +15,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.networksignalapp.ui.components.BarChartView
 import com.example.networksignalapp.ui.components.BottomNavigationBar
-import com.example.networksignalapp.ui.components.DateRangeSelector
+import com.example.networksignalapp.ui.components.DateRange
+import com.example.networksignalapp.ui.components.DateRangeSelectorButton
 import com.example.networksignalapp.ui.theme.Blue
 import com.example.networksignalapp.ui.theme.DarkGray
 import com.example.networksignalapp.ui.theme.Green
 import com.example.networksignalapp.ui.theme.Red
 import com.example.networksignalapp.viewmodel.NetworkSignalViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun NetworkStatisticsScreen(
@@ -29,8 +32,7 @@ fun NetworkStatisticsScreen(
     onNavigateToServer: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf("connectivity") }
-    var showCalendar by remember { mutableStateOf(false) }
-    var dateRangeText by remember { mutableStateOf("Filter by date range") }
+    var dateRange by remember { mutableStateOf(DateRange()) }
 
     // Collect state from ViewModel
     val statisticsData by viewModel.networkStatistics.collectAsState()
@@ -60,223 +62,229 @@ fun NetworkStatisticsScreen(
                 color = Color.White
             )
 
-            if (showCalendar) {
-                DateRangeSelector(
-                    onApply = { rangeText ->
-                        dateRangeText = rangeText
-                        // Here you would filter your data based on the selected date range
-                        // viewModel.filterDataByDateRange(startDate, endDate)
-                        showCalendar = false
-                    },
-                    onDismiss = { showCalendar = false }
-                )
-            } else {
-                // Date Range Filter Button
-                Button(
-                    onClick = { showCalendar = true },
+            // Date Range Selector
+            DateRangeSelectorButton(
+                currentDateRange = dateRange,
+                onDateRangeSelected = { newDateRange ->
+                    dateRange = newDateRange
+                    // Here you would filter data based on the selected date range
+                    viewModel.filterDataByDateRange(newDateRange)
+                }
+            )
+
+            // Display selected date range info if available
+            if (dateRange.isValid()) {
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = DarkGray
+                    colors = CardDefaults.cardColors(
+                        containerColor = Blue.copy(alpha = 0.1f)
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text(dateRangeText)
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "Data for period: ${dateRange.format()}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
                 }
+            }
 
-                // Tabs
-                TabRow(
-                    selectedTabIndex = when(selectedTab) {
-                        "connectivity" -> 0
-                        "signal" -> 1
-                        else -> 2
-                    },
-                    containerColor = DarkGray,
-                    contentColor = Blue
-                ) {
-                    Tab(
-                        selected = selectedTab == "connectivity",
-                        onClick = { selectedTab = "connectivity" },
-                        text = { Text("Connectivity") }
-                    )
-                    Tab(
-                        selected = selectedTab == "signal",
-                        onClick = { selectedTab = "signal" },
-                        text = { Text("Signal Power") }
-                    )
-                    Tab(
-                        selected = selectedTab == "snr",
-                        onClick = { selectedTab = "snr" },
-                        text = { Text("SNR/SINR") }
-                    )
-                }
+            // Tabs
+            TabRow(
+                selectedTabIndex = when(selectedTab) {
+                    "connectivity" -> 0
+                    "signal" -> 1
+                    else -> 2
+                },
+                containerColor = DarkGray,
+                contentColor = Blue
+            ) {
+                Tab(
+                    selected = selectedTab == "connectivity",
+                    onClick = { selectedTab = "connectivity" },
+                    text = { Text("Connectivity") }
+                )
+                Tab(
+                    selected = selectedTab == "signal",
+                    onClick = { selectedTab = "signal" },
+                    text = { Text("Signal Power") }
+                )
+                Tab(
+                    selected = selectedTab == "snr",
+                    onClick = { selectedTab = "snr" },
+                    text = { Text("SNR/SINR") }
+                )
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                when (selectedTab) {
-                    "connectivity" -> {
-                        // Average Connectivity Time Per Operator
-                        StatisticCard(
-                            title = "Average Connectivity Time Per Operator",
-                            value = statisticsData.averageConnectivity,
-                            trend = "+0.3%",
-                            trendIsPositive = true,
-                            timeFrame = "Last 30 days"
+            when (selectedTab) {
+                "connectivity" -> {
+                    // Average Connectivity Time Per Operator
+                    StatisticCard(
+                        title = "Average Connectivity Time Per Operator",
+                        value = statisticsData.averageConnectivity,
+                        trend = "+0.3%",
+                        trendIsPositive = true,
+                        timeFrame = dateRange.format()
+                    ) {
+                        BarChartView(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            data = statisticsData.operatorTime.map {
+                                Pair(it.key, it.value)
+                            },
+                            barColor = Blue
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Average Connectivity Time Per Network Type
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = DarkGray
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            BarChartView(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp),
-                                data = statisticsData.operatorTime.map {
-                                    Pair(it.key, it.value)
-                                },
-                                barColor = Blue
+                            Text(
+                                text = "Average Connectivity Time Per Network Type",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
                             )
-                        }
 
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // Average Connectivity Time Per Network Type
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = DarkGray
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Text(
-                                    text = "Average Connectivity Time Per Network Type",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold
+                            statisticsData.timeInNetworkType.forEach { (type, value) ->
+                                NetworkTypeStatItem(
+                                    type = type,
+                                    percentage = value.toInt(),
+                                    trend = if (type == "4G") "+5%" else if (type == "3G") "-5%" else "0%",
+                                    trendIsPositive = type == "4G"
                                 )
-
-                                statisticsData.timeInNetworkType.forEach { (type, value) ->
-                                    NetworkTypeStatItem(
-                                        type = type,
-                                        percentage = value.toInt(),
-                                        trend = if (type == "4G") "+5%" else if (type == "3G") "-5%" else "0%",
-                                        trendIsPositive = type == "4G"
-                                    )
-                                }
                             }
                         }
                     }
-                    "signal" -> {
-                        // Signal Power Card
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = DarkGray
-                            ),
-                            shape = RoundedCornerShape(12.dp)
+                }
+                "signal" -> {
+                    // Signal Power Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = DarkGray
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Text(
-                                    text = "Average Signal Power Per Network Type",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold
+                            Text(
+                                text = "Average Signal Power Per Network Type",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
+                            )
+
+                            statisticsData.signalPowerByType.forEach { (type, value) ->
+                                SignalPowerStatItem(
+                                    type = type,
+                                    value = value,
+                                    trend = if (type == "4G") "+3%" else if (type == "3G") "-1%" else "0%",
+                                    trendIsPositive = type == "4G"
                                 )
-
-                                statisticsData.signalPowerByType.forEach { (type, value) ->
-                                    SignalPowerStatItem(
-                                        type = type,
-                                        value = value,
-                                        trend = if (type == "4G") "+3%" else if (type == "3G") "-1%" else "0%",
-                                        trendIsPositive = type == "4G"
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // Signal Power Per Device
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = DarkGray
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Text(
-                                    text = "Average Signal Power Per Device",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-
-                                val devices = listOf("Device1", "Device2", "Device3", "Device4")
-                                val values = listOf(-68f, -72f, -78f, -65f)
-
-                                devices.forEachIndexed { index, device ->
-                                    SignalPowerStatItem(
-                                        type = device,
-                                        value = values[index],
-                                        trend = if (index % 2 == 0) "+2%" else "-1%",
-                                        trendIsPositive = index % 2 == 0
-                                    )
-                                }
                             }
                         }
                     }
-                    "snr" -> {
-                        // SNR Card
-                        StatisticCard(
-                            title = "Average SNR by Network Type",
-                            value = "12 dB",
-                            trend = "+5%",
-                            trendIsPositive = true,
-                            timeFrame = "Last 7 Days"
-                        ) {
-                            BarChartView(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp),
-                                data = listOf(
-                                    Pair("2G", 5f),
-                                    Pair("3G", 8f),
-                                    Pair("4G", 12f),
-                                    Pair("5G", 15f)
-                                ),
-                                barColor = Green
-                            )
-                        }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                        // SINR Card
-                        StatisticCard(
-                            title = "Average SINR by Network Type",
-                            value = "10 dB",
-                            trend = "+2%",
-                            trendIsPositive = true,
-                            timeFrame = "Last 7 Days"
+                    // Signal Power Per Device
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = DarkGray
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            BarChartView(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp),
-                                data = listOf(
-                                    Pair("2G", 3f),
-                                    Pair("3G", 6f),
-                                    Pair("4G", 10f),
-                                    Pair("5G", 14f)
-                                ),
-                                barColor = Blue
+                            Text(
+                                text = "Average Signal Power Per Device",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
                             )
+
+                            val devices = listOf("Device1", "Device2", "Device3", "Device4")
+                            val values = listOf(-68f, -72f, -78f, -65f)
+
+                            devices.forEachIndexed { index, device ->
+                                SignalPowerStatItem(
+                                    type = device,
+                                    value = values[index],
+                                    trend = if (index % 2 == 0) "+2%" else "-1%",
+                                    trendIsPositive = index % 2 == 0
+                                )
+                            }
                         }
+                    }
+                }
+                "snr" -> {
+                    // SNR Card
+                    StatisticCard(
+                        title = "Average SNR by Network Type",
+                        value = "12 dB",
+                        trend = "+5%",
+                        trendIsPositive = true,
+                        timeFrame = "Last 7 Days"
+                    ) {
+                        BarChartView(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            data = listOf(
+                                Pair("2G", 5f),
+                                Pair("3G", 8f),
+                                Pair("4G", 12f),
+                                Pair("5G", 15f)
+                            ),
+                            barColor = Green
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // SINR Card
+                    StatisticCard(
+                        title = "Average SINR by Network Type",
+                        value = "10 dB",
+                        trend = "+2%",
+                        trendIsPositive = true,
+                        timeFrame = "Last 7 Days"
+                    ) {
+                        BarChartView(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            data = listOf(
+                                Pair("2G", 3f),
+                                Pair("3G", 6f),
+                                Pair("4G", 10f),
+                                Pair("5G", 14f)
+                            ),
+                            barColor = Blue
+                        )
                     }
                 }
             }

@@ -5,10 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.networksignalapp.network.AuthService
-import com.example.networksignalapp.network.LoginRequest
-import com.example.networksignalapp.network.RegisterRequest
 import com.example.networksignalapp.network.RetrofitClient
 import com.example.networksignalapp.network.UserSessionManager
+import com.example.networksignalapp.network.model.LoginRequest
+import com.example.networksignalapp.network.model.RegisterRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

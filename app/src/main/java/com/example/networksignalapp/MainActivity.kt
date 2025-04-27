@@ -37,6 +37,7 @@ import com.example.networksignalapp.ui.screens.ServerScreen
 import com.example.networksignalapp.ui.screens.SignalOverviewScreen
 import com.example.networksignalapp.ui.theme.NetworkSignalAppTheme
 import com.example.networksignalapp.viewmodel.NetworkSignalViewModel
+import com.example.networksignalapp.viewmodel.NetworkSignalViewModelFactory
 import com.example.networksignalapp.viewmodel.UserViewModel
 
 class MainActivity : ComponentActivity() {
@@ -84,9 +85,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         try {
-            // Initialize ViewModels
-            networkViewModel = ViewModelProvider(this)[NetworkSignalViewModel::class.java]
-            userViewModel = ViewModelProvider(this, UserViewModel.Factory(applicationContext))[UserViewModel::class.java]
+            // Initialize ViewModels with proper factory
+            networkViewModel = ViewModelProvider(
+                this,
+                NetworkSignalViewModelFactory(applicationContext)
+            )[NetworkSignalViewModel::class.java]
+
+            userViewModel = ViewModelProvider(
+                this,
+                UserViewModel.Factory(applicationContext)
+            )[UserViewModel::class.java]
 
             // Create notification channel
             createNotificationChannel()
