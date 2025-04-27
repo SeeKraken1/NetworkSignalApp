@@ -15,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.networksignalapp.ui.components.BarChartView
 import com.example.networksignalapp.ui.components.BottomNavigationBar
-import com.example.networksignalapp.ui.components.CalendarView
+import com.example.networksignalapp.ui.components.DateRangeSelector
 import com.example.networksignalapp.ui.theme.Blue
 import com.example.networksignalapp.ui.theme.DarkGray
 import com.example.networksignalapp.ui.theme.Green
@@ -30,6 +30,7 @@ fun NetworkStatisticsScreen(
 ) {
     var selectedTab by remember { mutableStateOf("connectivity") }
     var showCalendar by remember { mutableStateOf(false) }
+    var dateRangeText by remember { mutableStateOf("Filter by date range") }
 
     // Collect state from ViewModel
     val statisticsData by viewModel.networkStatistics.collectAsState()
@@ -60,8 +61,14 @@ fun NetworkStatisticsScreen(
             )
 
             if (showCalendar) {
-                CalendarView(
-                    onApply = { showCalendar = false }
+                DateRangeSelector(
+                    onApply = { rangeText ->
+                        dateRangeText = rangeText
+                        // Here you would filter your data based on the selected date range
+                        // viewModel.filterDataByDateRange(startDate, endDate)
+                        showCalendar = false
+                    },
+                    onDismiss = { showCalendar = false }
                 )
             } else {
                 // Date Range Filter Button
@@ -73,7 +80,7 @@ fun NetworkStatisticsScreen(
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Filter by date range")
+                    Text(dateRangeText)
                 }
 
                 // Tabs
@@ -380,7 +387,7 @@ fun NetworkTypeStatItem(
             }
         }
 
-        // Progress bar - FIXED deprecated API warning
+        // Progress bar
         LinearProgressIndicator(
             modifier = Modifier
                 .fillMaxWidth()
@@ -443,7 +450,6 @@ fun SignalPowerStatItem(
         }
 
         // Progress bar - normalize between -120 dBm (0%) and -50 dBm (100%)
-        // FIXED deprecated API warning
         val normalizedValue = ((value + 120) / 70f).coerceIn(0f, 1f)
         LinearProgressIndicator(
             modifier = Modifier
