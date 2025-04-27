@@ -1,76 +1,109 @@
 package com.example.networksignalapp.repository
 
 import android.content.Context
-import android.content.SharedPreferences
-import android.net.wifi.WifiManager
-import com.example.networksignalapp.network.*
-import kotlinx.coroutines.Dispatchers
+import com.example.networksignalapp.R
+import com.example.networksignalapp.model.DeviceData
+import com.example.networksignalapp.model.NetworkSignalData
+import com.example.networksignalapp.model.NetworkStatisticsData
+import com.example.networksignalapp.model.SignalHistoryData
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
-import retrofit2.Response
-import java.net.NetworkInterface
+import kotlinx.coroutines.flow.flowOf
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import kotlin.random.Random
 
 /**
- * Repository handling all network-related operations including authentication,
- * data submission, and statistics retrieval
+ * Repository providing network signal data and related information.
+ * Currently using simulated data for demonstration purposes.
  */
-class NetworkRepository(private val context: Context) {
+class NetworkSignalRepository(private val context: Context) {
 
-    private val apiService: ApiService = RetrofitClient.create(ApiService::class.java)
-    private val prefs: SharedPreferences = context.getSharedPreferences("network_signal_prefs", Context.MODE_PRIVATE)
+    /**
+     * Get current network signal data
+     */
+    fun getNetworkSignalData(): Flow<NetworkSignalData> = flowOf(
+        NetworkSignalData(
+            signalStrength = "${Random.nextInt(-110, -60)}dBm",
+            networkType = listOf("4G", "5G", "3G").random(),
+            operator = listOf("T-Mobile", "Verizon", "AT&T").random(),
+            signalPower = "${Random.nextInt(-105, -55)}dBm",
+            sinrSnr = "${Random.nextInt(5, 25)}dB",
+            frequencyBand = "Band ${Random.nextInt(1, 80)}",
+            cellId = Random.nextInt(1000000, 9999999).toString(),
+            timeStamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
+            downloadSpeed = "${Random.nextDouble(5.0, 25.0).round(1)} Mbps",
+            uploadSpeed = "${Random.nextDouble(2.0, 15.0).round(1)} Mbps",
+            ping = "${Random.nextInt(20, 150)} ms",
+            jitter = "${Random.nextInt(2, 20)} ms",
+            packetLoss = "${Random.nextDouble(0.0, 3.0).round(1)}%"
+        )
+    )
 
-    companion object {
-        private const val KEY_TOKEN = "auth_token"
-        private const val DATE_FORMAT = "yyyy-MM-dd HH:mm"
-        private const val TIMESTAMP_FORMAT = "dd MMM yyyy hh:mm:ss a" // Format expected by server
+    /**
+     * Get signal history data for charting
+     */
+    fun getSignalHistory(): List<SignalHistoryData> {
+        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val calendar = Calendar.getInstance()
+
+        return List(24) { index ->
+            calendar.add(Calendar.MINUTE, -10)
+            val time = timeFormat.format(calendar.time)
+            // Simulate varying signal strength between -120 and -60 dBm
+            val signalStrength = -90f + Random.nextFloat() * 30f - Random.nextFloat() * 30f
+            SignalHistoryData(time, signalStrength)
+        }.reversed()
     }
 
     /**
-     * Login user and store token
+     * Get list of connected devices
      */
-    suspend fun login(username: String, password: String): Flow<Result<TokenResponse>> = flow {
-        try {
-            val response = apiService.login(LoginRequest(username, password))
-            if (response.isSuccessful && response.body() != null) {
-                // Save token
-                saveToken(response.body()!!.token)
-                emit(Result.success(response.body()!!))
-            } else {
-                emit(Result.failure(Exception("Login failed: ${response.code()}")))
-            }
-        } catch (e: Exception) {
-            emit(Result.failure(e))
-        }
-    }.flowOn(Dispatchers.IO)
+    fun getConnectedDevices(): List<DeviceData> {
+        return listOf(
+            DeviceData(1, "iPhone 12 Pro", "192.168.1.100", "00:1A:2B:3C:4D:5E", R.drawable.ic_smartphone),
+            DeviceData(2, "MacBook Pro", "192.168.1.101", "00:1A:2B:3C:4D:5F", R.drawable.ic_laptop),
+            DeviceData(3, "Desktop PC", "192.168.1.102", "00:1A:2B:3C:4D:60", R.drawable.ic_desktop),
+            DeviceData(4, "WiFi Router", "192.168.1.103", "00:1A:2B:3C:4D:61", R.drawable.ic_wifi),
+            DeviceData(5, "Smart Speaker", "192.168.1.104", "00:1A:2B:3C:4D:62", R.drawable.ic_speaker)
+        )
+    }
 
     /**
-     * Register a new user
+     * Get network statistics data
      */
-    suspend fun register(username: String, password: String): Flow<Result<Boolean>> = flow {
-        try {
-            val response = apiService.register(RegisterRequest(username, password))
-            if (response.isSuccessful) {
-                emit(Result.success(true))
-            } else {
-                val errorMessage = if (response.code() == 409) {
-                    "Username already taken"
-                } else {
-                    "Registration failed: ${response.code()}"
-                }
-                emit(Result.failure(Exception(errorMessage)))
-            }
-        } catch (e: Exception) {
-            emit(Result.failure(e))
-        }
-    }.flowOn(Dispatchers.IO)
+    fun getNetworkStatistics(): NetworkStatisticsData {
+        return NetworkStatisticsData(
+            averageConnectivity = "98%",
+            timeInNetworkType = mapOf(
+                "4G" to 40f,
+                "3G" to 30f,
+                "2G" to 30f
+            ),
+            operatorTime = mapOf(
+                "Verizon" to 1.2f,
+                "T-Mobile" to 1.5f,
+                "AT&T" to 0.8f
+            ),
+            signalPowerByType = mapOf(
+                "4G" to -65f,
+                "3G" to -85f,
+                "2G" to -100f
+            ),
+            snrByType = mapOf(
+                "4G" to 12f,
+                "3G" to 8f,
+                "2G" to 5f
+            )
+        )
+    }
 
     /**
-     * Submit cell network data to server
+     * Submit cell data to server
      */
-    suspend fun submitCellData(
+    fun submitCellData(
         operator: String,
         signalPower: Float,
         sinrSnr: Float,
@@ -78,153 +111,23 @@ class NetworkRepository(private val context: Context) {
         frequencyBand: String,
         cellId: String
     ): Flow<Result<Boolean>> = flow {
-        try {
-            val token = getToken()
-            if (token.isNullOrEmpty()) {
-                emit(Result.failure(Exception("Not authenticated")))
-                return@flow
-            }
+        // Simulate network call delay
+        kotlinx.coroutines.delay(1000)
 
-            val timestamp = SimpleDateFormat(TIMESTAMP_FORMAT, Locale.US).format(Date())
-            val deviceInfo = getDeviceNetworkInfo()
-
-            val cellData = CellDataRequest(
-                operator = operator,
-                signalPower = signalPower,
-                sinr_snr = sinrSnr,
-                networkType = networkType,
-                frequency_band = frequencyBand,
-                cell_id = cellId,
-                timestamp = timestamp,
-                user_ip = deviceInfo.first,
-                user_mac = deviceInfo.second
-            )
-
-            val response = apiService.submitCellData("Bearer $token", cellData)
-            if (response.isSuccessful) {
-                emit(Result.success(true))
-            } else {
-                emit(Result.failure(Exception("Failed to submit data: ${response.code()}")))
-            }
-        } catch (e: Exception) {
-            emit(Result.failure(e))
+        // Simulate success with 90% probability
+        if (Random.nextFloat() < 0.9f) {
+            emit(Result.success(true))
+        } else {
+            emit(Result.failure(Exception("Network error")))
         }
-    }.flowOn(Dispatchers.IO)
-
-    /**
-     * Get statistics for a specific date range
-     */
-    suspend fun getStatistics(startDate: Date, endDate: Date): Flow<Result<StatisticsResponse>> = flow {
-        try {
-            val token = getToken()
-            if (token.isNullOrEmpty()) {
-                emit(Result.failure(Exception("Not authenticated")))
-                return@flow
-            }
-
-            val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.US)
-            val request = DateRangeRequest(
-                start_date = dateFormat.format(startDate),
-                end_date = dateFormat.format(endDate)
-            )
-
-            val response = apiService.getStatistics("Bearer $token", request)
-            if (response.isSuccessful && response.body() != null) {
-                emit(Result.success(response.body()!!))
-            } else {
-                emit(Result.failure(Exception("Failed to get statistics: ${response.code()}")))
-            }
-        } catch (e: Exception) {
-            emit(Result.failure(e))
-        }
-    }.flowOn(Dispatchers.IO)
-
-    /**
-     * Get centralized statistics about connected devices
-     */
-    suspend fun getCentralizedStatistics(): Flow<Result<CentralizedStatisticsResponse>> = flow {
-        try {
-            val response = apiService.getCentralizedStatistics()
-            if (response.isSuccessful && response.body() != null) {
-                emit(Result.success(response.body()!!))
-            } else {
-                emit(Result.failure(Exception("Failed to get centralized statistics: ${response.code()}")))
-            }
-        } catch (e: Exception) {
-            emit(Result.failure(e))
-        }
-    }.flowOn(Dispatchers.IO)
-
-    /**
-     * Get device IP and MAC address
-     */
-    private fun getDeviceNetworkInfo(): Pair<String, String> {
-        // Get IP address
-        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        val ipAddress = wifiManager.connectionInfo.ipAddress
-        val ip = String.format(
-            "%d.%d.%d.%d",
-            ipAddress and 0xff,
-            ipAddress shr 8 and 0xff,
-            ipAddress shr 16 and 0xff,
-            ipAddress shr 24 and 0xff
-        )
-
-        // Get MAC address
-        var macAddress = ""
-        try {
-            val networkInterfaces = NetworkInterface.getNetworkInterfaces()
-            while (networkInterfaces.hasMoreElements()) {
-                val networkInterface = networkInterfaces.nextElement()
-
-                if (networkInterface.name.equals("wlan0", ignoreCase = true)) {
-                    val macBytes = networkInterface.hardwareAddress
-                    if (macBytes != null) {
-                        val strBuilder = StringBuilder()
-                        for (b in macBytes) {
-                            strBuilder.append(String.format("%02X:", b))
-                        }
-                        if (strBuilder.isNotEmpty()) {
-                            strBuilder.deleteCharAt(strBuilder.length - 1)
-                        }
-                        macAddress = strBuilder.toString()
-                        break
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            macAddress = "02:00:00:00:00:00" // Default MAC if unable to get
-        }
-
-        return Pair(ip, macAddress)
     }
 
     /**
-     * Save authentication token
+     * Helper extension function to round doubles for display
      */
-    private fun saveToken(token: String) {
-        prefs.edit().putString(KEY_TOKEN, token).apply()
-    }
-
-    /**
-     * Get saved authentication token
-     */
-    fun getToken(): String? {
-        return prefs.getString(KEY_TOKEN, null)
-    }
-
-    /**
-     * Check if user is logged in
-     */
-    fun isLoggedIn(): Boolean {
-        return !getToken().isNullOrEmpty()
-    }
-
-    /**
-     * Logout user by clearing token
-     */
-    fun logout() {
-        prefs.edit().remove(KEY_TOKEN).apply()
+    private fun Double.round(decimals: Int): Double {
+        var multiplier = 1.0
+        repeat(decimals) { multiplier *= 10 }
+        return kotlin.math.round(this * multiplier) / multiplier
     }
 }
