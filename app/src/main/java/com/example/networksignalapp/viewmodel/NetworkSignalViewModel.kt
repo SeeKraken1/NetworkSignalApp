@@ -8,13 +8,13 @@ import com.example.networksignalapp.model.DeviceData
 import com.example.networksignalapp.model.NetworkSignalData
 import com.example.networksignalapp.model.NetworkStatisticsData
 import com.example.networksignalapp.model.SignalHistoryData
-import com.example.networksignalapp.repository.NetworkRepository
 import com.example.networksignalapp.ui.components.SpeedTestResult
 import com.example.networksignalapp.ui.components.SpeedTestStatus
 import com.example.networksignalapp.ui.screens.exportToCsv
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -22,7 +22,6 @@ import java.util.Locale
 import kotlin.random.Random
 
 class NetworkSignalViewModel(
-    private val repository: NetworkRepository,
     private val appContext: Context? = null
 ) : ViewModel() {
 
@@ -75,24 +74,63 @@ class NetworkSignalViewModel(
         loadNetworkStatistics()
         loadThemePreference()
 
-        // Start collecting live network data from repository if available
-        viewModelScope.launch {
-            repository.getNetworkSignalData().collect { data ->
-                _networkSignalData.value = data
-            }
-        }
+        // Generate initial mock data
+        generateMockNetworkData()
+    }
+
+    /**
+     * Generate mock network data for development
+     */
+    private fun generateMockNetworkData() {
+        _networkSignalData.value = NetworkSignalData(
+            signalStrength = "${_realSignalStrength.value}dBm",
+            networkType = "4G",
+            operator = "T-Mobile",
+            signalPower = "${_realSignalStrength.value}dBm",
+            sinrSnr = "20dB",
+            frequencyBand = "Band 66",
+            cellId = "1234567",
+            timeStamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
+            downloadSpeed = "12.4 Mbps",
+            uploadSpeed = "8.3 Mbps",
+            ping = "109 ms",
+            jitter = "9 ms",
+            packetLoss = "0%"
+        )
     }
 
     fun loadSignalHistory() {
-        _signalHistory.value = repository.getSignalHistory()
+        _signalHistory.value = generateMockSignalHistory()
     }
 
     fun loadConnectedDevices() {
-        _connectedDevices.value = repository.getConnectedDevices()
+        _connectedDevices.value = generateMockDevices()
     }
 
     fun loadNetworkStatistics() {
-        _networkStatistics.value = repository.getNetworkStatistics()
+        _networkStatistics.value = NetworkStatisticsData(
+            averageConnectivity = "98%",
+            timeInNetworkType = mapOf(
+                "4G" to 40f,
+                "3G" to 30f,
+                "2G" to 30f
+            ),
+            operatorTime = mapOf(
+                "Verizon" to 1.2f,
+                "T-Mobile" to 1.5f,
+                "AT&T" to 0.8f
+            ),
+            signalPowerByType = mapOf(
+                "4G" to -65f,
+                "3G" to -85f,
+                "2G" to -100f
+            ),
+            snrByType = mapOf(
+                "4G" to 12f,
+                "3G" to 8f,
+                "2G" to 5f
+            )
+        )
     }
 
     private fun loadThemePreference() {
@@ -249,32 +287,32 @@ class NetworkSignalViewModel(
         loadConnectedDevices()
         loadNetworkStatistics()
         loadSignalHistory()
+        generateMockNetworkData()
     }
 
-    // Submit data to the backend server
-    fun submitSignalDataToServer() {
-        viewModelScope.launch {
-            val data = _networkSignalData.value
-            repository.submitCellData(
-                operator = data.operator,
-                signalPower = _realSignalStrength.value.toFloat(),
-                sinrSnr = data.sinrSnr.replace("dB", "").trim().toFloatOrNull() ?: 0f,
-                networkType = data.networkType,
-                frequencyBand = data.frequencyBand,
-                cellId = data.cellId
-            ).collect { result ->
-                result.fold(
-                    onSuccess = {
-                        // Successfully submitted data to server
-                        // You could update a status message here if needed
-                    },
-                    onFailure = { error ->
-                        // Failed to submit data
-                        // Log error or show notification to user
-                    }
-                )
-            }
-        }
+    // Added mock data generator functions to replace repository calls
+
+    private fun generateMockSignalHistory(): List<SignalHistoryData> {
+        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val calendar = java.util.Calendar.getInstance()
+
+        return List(24) { index ->
+            calendar.add(java.util.Calendar.MINUTE, -10)
+            val time = timeFormat.format(calendar.time)
+            // Simulate varying signal strength between -120 and -60 dBm
+            val signalStrength = -90f + Random.nextFloat() * 30f - Random.nextFloat() * 30f
+            SignalHistoryData(time, signalStrength)
+        }.reversed()
+    }
+
+    private fun generateMockDevices(): List<DeviceData> {
+        return listOf(
+            DeviceData(1, "iPhone 12 Pro", "192.168.1.100", "00:1A:2B:3C:4D:5E", com.example.networksignalapp.R.drawable.ic_smartphone),
+            DeviceData(2, "MacBook Pro", "192.168.1.101", "00:1A:2B:3C:4D:5F", com.example.networksignalapp.R.drawable.ic_laptop),
+            DeviceData(3, "Desktop PC", "192.168.1.102", "00:1A:2B:3C:4D:60", com.example.networksignalapp.R.drawable.ic_desktop),
+            DeviceData(4, "WiFi Router", "192.168.1.103", "00:1A:2B:3C:4D:61", com.example.networksignalapp.R.drawable.ic_wifi),
+            DeviceData(5, "Smart Speaker", "192.168.1.104", "00:1A:2B:3C:4D:62", com.example.networksignalapp.R.drawable.ic_speaker)
+        )
     }
 
     // Filter devices by type
@@ -314,5 +352,18 @@ class NetworkSignalViewModel(
             networkType = data.networkType,
             sinr = data.sinrSnr
         )
+    }
+
+    // Added missing method for repository compatibility
+    fun getNetworkSignalData() = flowOf(_networkSignalData.value)
+
+    // Add method to simulate submitting data to server
+    fun submitSignalDataToServer() {
+        viewModelScope.launch {
+            // In a real app, this would make an API call
+            // For now, just simulate a successful submission
+            kotlinx.coroutines.delay(500)
+            // Successfully submitted data simulation
+        }
     }
 }
