@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="600dp"
+    android:height="400dp"
+    android:viewportWidth="600"
+    android:viewportHeight="400">
+
+    <!-- Background -->
+    <path
+        android:fillColor="#2D3439"
+        android:pathData="M0,0h600v400h-600z"/>
+
+    <!-- Bay water -->
+    <path
+        android:fillColor="#344955"
+        android:pathData="M0,0h150v400h-150zM450,0h150v400h-150zM0,0h600v100h-600z"/>
+
+    <!-- Main land mass -->
+    <path
+        android:fillColor="#3C4349"
+        android:pathData="M150,100h300v300h-300z"/>
+
+    <!-- Major highways -->
+    <path
+        android:strokeColor="#AAAAAA"
+        android:strokeWidth="5"
+        android:pathData="M150,200h300M300,100v300"/>
+
+    <!-- Secondary streets - grid pattern -->
+    <path
+        android:strokeColor="#888888"
+        android:strokeWidth="2"
+        android:pathData="M150,140h300M150,170h300M150,230h300M150,260h300M150,290h300M150,320h300M150,350h300M180,100v300M210,100v300M240,100v300M270,100v300M330,100v300M360,100v300M390,100v300M420,100v300"/>
+
+    <!-- Minor streets -->
+    <path
+        android:strokeColor="#666666"
+        android:strokeWidth="1"
+        android:pathData="M150,120h300M150,155h300M150,185h300M150,215h300M150,245h300M150,275h300M150,305h300M150,335h300M150,365h300M165,100v300M195,100v300M225,100v300M255,100v300M285,100v300M315,100v300M345,100v300M375,100v300M405,100v300M435,100v300"/>
+
+    <!-- Downtown/Financial district (lighter blocks) -->
+    <path
+        android:fillColor="#444952"
+        android:pathData="M270,170h60v60h-60z"/>
+    <path
+        android:fillColor="#444952"
+        android:pathData="M330,230h60v60h-60z"/>
+    <path
+        android:fillColor="#444952"
+        android:pathData="M210,230h60v60h-60z"/>
+
+    <!-- Buildings (darker rectangles representing city blocks) -->
+    <!-- Downtown area -->
+    <path
+        android:fillColor="#333940"
+        android:pathData="M240,140h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M280,140h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M320,140h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M360,140h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M240,180h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M320,180h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M360,180h30v30h-30z"/>
+
+    <!-- Residential areas -->
+    <path
+        android:fillColor="#333940"
+        android:pathData="M180,230h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M180,270h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M180,310h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M220,270h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M220,310h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M260,270h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M260,310h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M300,270h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M300,310h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M340,270h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M340,310h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M380,270h30v30h-30z"/>
+    <path
+        android:fillColor="#333940"
+        android:pathData="M380,310h30v30h-30z"/>
+
+    <!-- Parks and green spaces -->
+    <path
+        android:fillColor="#3E5641"
+        android:pathData="M350,140h50v50h-50z"/>
+    <path
+        android:fillColor="#3E5641"
+        android:pathData="M200,200h30v30h-30z"/>
+
+    <!-- Golden Gate Park representation -->
+    <path
+        android:fillColor="#3E5641"
+        android:pathData="M180,170h120v30h-120z"/>
+
+    <!-- Water features inside the city -->
+    <path
+        android:fillColor="#344955"
+        android:pathData="M400,330h30v30h-30z"/>
+
+    <!-- Golden Gate Bridge indication -->
+    <path
+        android:strokeColor="#A04B4B"
+        android:strokeWidth="5"
+        android:pathData="M150,150h-50"/>
+
+    <!-- Bay Bridge indication -->
+    <path
+        android:strokeColor="#AAAAAA"
+        android:strokeWidth="5"
+        android:pathData="M420,200h80"/>
+</vector>
